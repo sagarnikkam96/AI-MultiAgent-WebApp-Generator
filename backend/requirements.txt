@@ -1,1 +1,5 @@
-# Backend Python dependencies list placeholder
+fastapi
+uvicorn
+python-dotenv
+pydantic
+pydantic-settings
