@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any
 
 
-class BaseAgent:
-    """Base class for all AI agents in the system."""
+class BaseAgent(ABC):
+    """Base interface for all agents in the system."""
 
     def __init__(self, name: str, description: str | None = None) -> None:
-        """Initialize the agent with a name and optional description."""
+        """Initialize the agent with basic metadata."""
         self.name = name
         self.description = description
 
-    def process(self, input_data: Any) -> Any:
-        """Process input data and return a result."""
+    @abstractmethod
+    def analyze(self, user_prompt: str) -> Any:
+        """Analyze a user prompt and return a structured result."""
         raise NotImplementedError

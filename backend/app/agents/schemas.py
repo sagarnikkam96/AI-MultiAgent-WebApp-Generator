@@ -19,6 +19,17 @@ class AgentResponse(BaseModel):
     success: bool = Field(default=True, description="Whether the agent completed successfully")
 
 
+class RequirementSchema(BaseModel):
+    """Structured schema for analyzed project requirements."""
+
+    project_name: str = Field(..., description="Name of the project")
+    frontend: str = Field(..., description="Frontend technology")
+    backend: str = Field(..., description="Backend technology")
+    database: str = Field(..., description="Database technology")
+    authentication: bool = Field(default=False, description="Whether authentication is required")
+    modules: list[str] = Field(default_factory=list, description="Planned modules")
+
+
 class RequirementInput(BaseModel):
     """Input schema for requirement analysis."""
 
