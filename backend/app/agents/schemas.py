@@ -23,11 +23,13 @@ class RequirementSchema(BaseModel):
     """Structured schema for analyzed project requirements."""
 
     project_name: str = Field(..., description="Name of the project")
+    project_type: str = Field(default="", description="Type of the project")
     frontend: str = Field(..., description="Frontend technology")
     backend: str = Field(..., description="Backend technology")
     database: str = Field(..., description="Database technology")
     authentication: bool = Field(default=False, description="Whether authentication is required")
     modules: list[str] = Field(default_factory=list, description="Planned modules")
+    validation_errors: list[str] = Field(default_factory=list, description="Validation issues found")
 
 
 class RequirementInput(BaseModel):
