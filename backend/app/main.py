@@ -2,9 +2,16 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from .agents.requirement_agent import RequirementAgent
 from .agents.schemas import RequirementSchema
+
+
+class AnalyzeRequest(BaseModel):
+    """Request payload for requirement analysis."""
+
+    user_prompt: str = Field(..., description="User prompt describing the project requirements")
 
 app = FastAPI(
     title="AI Multi-Agent Web Application Generator Backend",
@@ -34,6 +41,6 @@ def read_root() -> dict[str, str]:
 
 
 @app.post("/analyze", tags=["requirements"], response_model=RequirementSchema)
-def analyze_requirements(user_prompt: str) -> RequirementSchema:
+def analyze_requirements(request: AnalyzeRequest) -> RequirementSchema:
     """Analyze a user prompt and return structured project requirements."""
-    return agent.analyze(user_prompt)
+    return agent.analyze(request.user_prompt)

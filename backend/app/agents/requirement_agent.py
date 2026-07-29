@@ -62,6 +62,15 @@ class RequirementAgent(BaseAgent):
                     break
             return extracted.strip()
 
+        for prefix in ("build a ", "create a ", "develop a "):
+            if prompt.startswith(prefix):
+                extracted = prompt[len(prefix):].strip()
+                for separator in (" using ", " with ", " for ", " and ", "\n"):
+                    if separator in extracted:
+                        extracted = extracted.split(separator, 1)[0].strip()
+                        break
+                return extracted.strip()
+
         return ""
 
     def _detect_project_type(self, prompt: str) -> str:

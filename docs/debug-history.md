@@ -85,3 +85,21 @@ Added CORSMiddleware allowing requests from http://localhost:5173.
 
 **Status**
 ✅ Resolved
+
+## Bug 005 - Project Name Detection
+**Date:**2026-07-29
+
+Issue:
+The Requirement Agent failed to detect the project name from prompts such as:
+"Build a Hospital Management System using React FastAPI".
+
+Cause:
+The project name extraction logic only supported phrases like
+"project name" and "called".
+
+Fix:
+Enhanced the extraction logic to recognize prompts beginning with
+"Build", "Create", and "Develop".
+
+Result:
+Project names are now correctly extracted from natural language prompts.
