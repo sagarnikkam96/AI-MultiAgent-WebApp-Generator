@@ -15,6 +15,10 @@ class PlannerAgent(BaseAgent):
         """Initialize the planner agent."""
         super().__init__(name=name, description="Creates a project execution plan from requirements")
 
+    def analyze(self, user_prompt: str) -> ProjectPlan:
+        """Analyze a prompt or requirements-like input and return a project plan."""
+        return self.plan(user_prompt)
+
     def plan(self, requirements: Any) -> ProjectPlan:
         """Create a project execution plan based on the provided requirements."""
         frontend = getattr(requirements, "frontend", "")
