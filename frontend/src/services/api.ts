@@ -11,6 +11,14 @@ interface RequirementAnalysisResponse {
   validation_errors: string[];
 }
 
+interface AnalyzeProjectResponse {
+  requirements: RequirementAnalysisResponse;
+  project_plan: Record<string, unknown>;
+  backend_blueprint: Record<string, unknown>;
+  database_blueprint: Record<string, unknown>;
+  ollama_response?: string | null;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
 
@@ -33,9 +41,9 @@ export async function getBackendStatus(): Promise<{ message: string; status: str
   }
 }
 
-export async function analyzeProject(userPrompt: string): Promise<RequirementAnalysisResponse> {
+export async function analyzeProject(userPrompt: string): Promise<AnalyzeProjectResponse> {
   try {
-    return await request<RequirementAnalysisResponse>('/analyze', {
+    return await request<AnalyzeProjectResponse>('/analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

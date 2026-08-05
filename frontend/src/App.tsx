@@ -18,12 +18,20 @@ type RequirementAnalysis = {
   validation_errors: string[];
 };
 
+type AnalysisResult = {
+  requirements: RequirementAnalysis;
+  project_plan: Record<string, unknown>;
+  backend_blueprint: Record<string, unknown>;
+  database_blueprint: Record<string, unknown>;
+  ollama_response?: string | null;
+};
+
 function App() {
   const [status, setStatus] = useState<BackendStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [analysis, setAnalysis] = useState<RequirementAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
@@ -95,14 +103,30 @@ function App() {
 
       {analysis && (
         <div style={{ marginTop: '1.5rem' }}>
-          <p><strong>Project Name:</strong> {analysis.project_name}</p>
-          <p><strong>Project Type:</strong> {analysis.project_type}</p>
-          <p><strong>Frontend:</strong> {analysis.frontend}</p>
-          <p><strong>Backend:</strong> {analysis.backend}</p>
-          <p><strong>Database:</strong> {analysis.database}</p>
-          <p><strong>Authentication:</strong> {analysis.authentication ? 'Yes' : 'No'}</p>
-          <p><strong>Modules:</strong> {analysis.modules.join(', ') || 'None'}</p>
-          <p><strong>Validation Errors:</strong> {analysis.validation_errors.length > 0 ? analysis.validation_errors.join(', ') : 'None'}</p>
+          <p><strong>Project Name:</strong> {analysis.requirements.project_name}</p>
+          <p><strong>Project Type:</strong> {analysis.requirements.project_type}</p>
+          <p><strong>Frontend:</strong> {analysis.requirements.frontend}</p>
+          <p><strong>Backend:</strong> {analysis.requirements.backend}</p>
+          <p><strong>Database:</strong> {analysis.requirements.database}</p>
+          <p><strong>Authentication:</strong> {analysis.requirements.authentication ? 'Yes' : 'No'}</p>
+          <p><strong>Modules:</strong> {analysis.requirements.modules.join(', ') || 'None'}</p>
+          <p><strong>Validation Errors:</strong> {analysis.requirements.validation_errors.length > 0 ? analysis.requirements.validation_errors.join(', ') : 'None'}</p>
+
+          <section style={{ marginTop: '1.5rem' }}>
+            <h2>AI Generated Project Summary</h2>
+            <div
+              style={{
+                padding: '1rem',
+                borderRadius: '12px',
+                border: '1px solid #ddd',
+                backgroundColor: '#f9f9fb',
+                whiteSpace: 'pre-wrap',
+                minHeight: '4rem',
+              }}
+            >
+              {analysis.ollama_response ? analysis.ollama_response : 'No AI response available.'}
+            </div>
+          </section>
         </div>
       )}
     </main>

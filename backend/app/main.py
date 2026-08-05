@@ -3,9 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from typing import Any
 
-from .agents.requirement_agent import RequirementAgent
-from .agents.schemas import RequirementSchema
+from .agents.orchestrator import MultiAgentOrchestrator
 
 
 class AnalyzeRequest(BaseModel):
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-agent = RequirementAgent()
+orchestrator = MultiAgentOrchestrator()
 
 
 @app.get("/", tags=["health"])
@@ -40,7 +40,7 @@ def read_root() -> dict[str, str]:
     }
 
 
-@app.post("/analyze", tags=["requirements"], response_model=RequirementSchema)
-def analyze_requirements(request: AnalyzeRequest) -> RequirementSchema:
-    """Analyze a user prompt and return structured project requirements."""
-    return agent.analyze(request.user_prompt)
+@app.post("/analyze", tags=["requirements"])
+def analyze_requirements(request: AnalyzeRequest) -> dict[str, Any]:
+    """Analyze a user prompt and return the full orchestrator result."""
+    return orchestrator.run(request.user_prompt)
