@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 from .code_generator import CodeGenerator, PromptProvider
@@ -16,17 +17,27 @@ class DatabaseGenerator(CodeGenerator):
 
     def _build_database_files(self, prompt: str) -> list[GeneratedFile]:
         """Construct the initial database file list."""
-        # TODO: implement database generation using Ollama and structured prompts
+        project_slug = self._project_slug(prompt)
+        project_root = f"generated_projects/{project_slug}/backend"
         return [
             GeneratedFile(
-                path="backend/app/database/models.py",
+                path=f"{project_root}/database/models.py",
                 content=self._database_models_placeholder(),
             ),
             GeneratedFile(
-                path="backend/app/database/session.py",
+                path=f"{project_root}/database/session.py",
                 content=self._database_session_placeholder(),
             ),
         ]
+
+    def _project_slug(self, requirements: str) -> str:
+        text = requirements.lower()
+        text = re.sub(r"[^a-z0-9\s-]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return "generated_project"
+        slug = "_".join(text.split()[:4])
+        return slug[:50].strip("_") or "generated_project"
 
     def _database_models_placeholder(self) -> str:
         """Return a placeholder SQLAlchemy models file."""

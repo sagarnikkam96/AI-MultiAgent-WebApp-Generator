@@ -1,16 +1,7 @@
-// src/App.tsx
+import { createApp } from 'vue';
+import App from './App.vue';
 
-import React from 'react';
+const app = createApp(App);
+app.mount('#app');
 
-interface HospitalManagementSystemProps {}
-
-const HospitalManagementSystem: React.FC<HospitalManagementSystemProps> = () => {
-  return (
-    <div>
-      <h1>Hospital Management System</h1>
-      {/* Add your components and logic here */}
-    </div>
-  );
-};
-
-export default HospitalManagementSystem;
+Note: Ensure you have a `main.ts` file in your project root, which imports the Vue application and mounts it to the DOM.

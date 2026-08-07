@@ -1,29 +1,21 @@
 import React from 'react';
-import { Card } from '@mui/material';
+import { Card } from 'antd';
 
-interface HospitalDashboardProps {
-  patientCount: number;
-  doctorCount: number;
-  appointmentCount: number;
-}
+const HospitalDashboardPage: React.FC = () => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Summary Cards */}
+      <Card title="Patients">
+        <p>10,500 registered</p>
+      </Card>
+      <Card title="Doctors">
+        <p>80 available</p>
+      </Card>
+      <Card title="Appointments Today">
+        <p>250 pending</p>
+      </Card>
+    </div>
+  );
+};
 
-const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ patientCount, doctorCount, appointmentCount }) => (
-  <div>
-    <Card sx={{ margin: '20px' }}>
-      <h2>Patient Summary</h2>
-      <p>Total Patients: {patientCount}</p>
-    </Card>
-
-    <Card sx={{ margin: '20px' }}>
-      <h2>Doctor Summary</h2>
-      <p>Total Doctors: {doctorCount}</p>
-    </Card>
-
-    <Card sx={{ margin: '20px' }}>
-      <h2>Appointment Summary</h2>
-      <p>Total Appointments: {appointmentCount}</p>
-    </Card>
-  </div>
-);
-
-export default HospitalDashboard;
+export default HospitalDashboardPage;

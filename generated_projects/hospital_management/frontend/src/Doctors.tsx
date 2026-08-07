@@ -1,28 +1,42 @@
 import React from 'react';
-import { useState } from 'react';
-import { Doctor } from './Doctor'; // Assuming you have a Doctor model
 
-interface DoctorManagementProps {}
+interface Doctor {
+  id: number;
+  name: string;
+  specialization: string;
+  email: string;
+}
 
-const DoctorManagement: React.FC<DoctorManagementProps> = () => {
-  const [doctors, setDoctors] = useState([
-    { id: 1, name: 'Dr. John Doe', specialty: 'Cardiology' },
-    { id: 2, name: 'Dr. Jane Smith', specialty: 'Pediatrics' },
-    // Add more doctors as needed
-  ]);
+interface DoctorsPageProps {
+  doctors: Doctor[];
+}
 
+const DoctorsPage: React.FC<DoctorsPageProps> = ({ doctors }) => {
   return (
     <div>
       <h1>Doctor Management</h1>
-      <ul>
-        {doctors.map((doctor) => (
-          <li key={doctor.id}>
-            <Doctor doctor={doctor} />
-          </li>
-        ))}
-      </ul>
+      <table border="1">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Specialization</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          {doctors.map((doctor) => (
+            <tr key={doctor.id}>
+              <td>{doctor.id}</td>
+              <td>{doctor.name}</td>
+              <td>{doctor.specialization}</td>
+              <td>{doctor.email}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
 
-export default DoctorManagement;
+export default DoctorsPage;

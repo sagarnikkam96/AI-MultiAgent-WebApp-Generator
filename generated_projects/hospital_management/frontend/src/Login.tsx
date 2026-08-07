@@ -1,41 +1,43 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 interface LoginFormProps {
-  onLogin: (email: string, password: string) => void;
+  onSubmit: (email: string, password: string) => void;
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginForm: React.FC<LoginFormProps> = ({ onSubmit }) => {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
-  const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(event.target.value);
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
   };
 
-  const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(event.target.value);
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onLogin(email, password);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onSubmit(email, password);
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <div>
-        <label>Email:</label>
+        <label htmlFor="email">Email:</label>
         <input
           type="email"
+          id="email"
           value={email}
           onChange={handleEmailChange}
           required
         />
       </div>
       <div>
-        <label>Password:</label>
+        <label htmlFor="password">Password:</label>
         <input
           type="password"
+          id="password"
           value={password}
           onChange={handlePasswordChange}
           required

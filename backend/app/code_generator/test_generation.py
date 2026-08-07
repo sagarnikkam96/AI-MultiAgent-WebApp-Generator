@@ -6,6 +6,7 @@ from pathlib import Path
 # Ensure the local `app` package is importable when running this script directly.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from app.code_generator.backend_generator import BackendGenerator
 from app.code_generator.frontend_generator import FrontendGenerator
 from app.code_generator.code_schema import GeneratedFile
 from app.project_writer.file_writer import FileWriter
@@ -50,5 +51,58 @@ def main() -> None:
         print(created_path)
 
 
+def run_backend_generation_test() -> None:
+    prompt = "Build a task management application using React FastAPI PostgreSQL with login and tasks."
+    file_writer = FileWriter(Path(__file__).resolve().parents[3])
+    backend_generator = BackendGenerator()
+    frontend_generator = FrontendGenerator()
+
+    generated_files = backend_generator.generate_files(type("Prompt", (), {"get_prompt": lambda self: prompt})())
+
+    print("BACKEND AI CODE GENERATED")
+    for generated_file in generated_files:
+        print(generated_file.path)
+
+    created_paths = file_writer.write_files(generated_files)
+    print("BACKEND FILES CREATED")
+    for created_path in created_paths:
+        print(created_path)
+
+    project_slug = backend_generator._project_slug(prompt)
+    expected_paths = [
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/main.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/database/connection.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/database/session.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/models/models.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/schemas/schemas.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/routers/routes.py",
+    ]
+
+    missing = [str(path) for path in expected_paths if not path.exists()]
+    if missing:
+        raise SystemExit(f"Expected backend files missing: {missing}")
+
+    # Validate generated Python syntax for backend files
+    for path in created_paths:
+        if path.suffix == ".py":
+            source = path.read_text(encoding="utf-8")
+            try:
+                __import__("ast").parse(source)
+            except SyntaxError as exc:
+                raise SystemExit(f"Generated Python file {path} contains syntax error: {exc}")
+
+    # Validate generated JSON output for package.json via frontend generator
+    package_json = frontend_generator.generate_package_json("Task Management", prompt)
+    try:
+        __import__("json").loads(package_json)
+    except ValueError as exc:
+        raise SystemExit(f"Generated package.json is invalid JSON: {exc}")
+
+    print("BACKEND FILES VERIFIED")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "backend":
+        run_backend_generation_test()
+    else:
+        main()

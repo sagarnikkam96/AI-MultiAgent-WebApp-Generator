@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Protocol
 
@@ -17,13 +18,31 @@ class FrontendGenerator(CodeGenerator):
         return self._strip_markdown_fences(generated_text).strip()
 
     def generate_package_json(self, project_name: str, requirements: str) -> str:
-        """Generate a package.json using a dedicated prompt. Returns raw LLM response.
-
-        The response is intentionally returned un-parsed so the caller (FileWriter)
-        can log and validate the raw LLM output before writing to disk.
-        """
-        prompt = self._build_package_json_prompt(project_name, requirements)
-        return self._generate_text(prompt)
+        """Generate a valid package.json deterministically using Python."""
+        package_json = {
+            "name": project_name.lower().replace(" ", "-"),
+            "private": True,
+            "version": "0.0.1",
+            "type": "module",
+            "scripts": {
+                "dev": "vite",
+                "build": "tsc -b && vite build",
+                "preview": "vite preview",
+            },
+            "dependencies": {
+                "react": "^18.0.0",
+                "react-dom": "^18.0.0",
+            },
+            "devDependencies": {
+                "@types/react": "^18.0.0",
+                "@types/react-dom": "^18.0.0",
+                "@vitejs/plugin-react": "^4.0.0",
+                "typescript": "^5.0.0",
+                "vite": "^5.0.0",
+                "tslib": "^2.0.0",
+            },
+        }
+        return json.dumps(package_json, indent=2)
 
     def _build_package_json_prompt(self, project_name: str, requirements: str) -> str:
         """Build a strict prompt asking the LLM to return only a valid package.json object.
