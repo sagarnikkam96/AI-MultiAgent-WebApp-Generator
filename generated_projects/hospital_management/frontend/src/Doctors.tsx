@@ -1,41 +1,28 @@
+import React from 'react';
 import { useState } from 'react';
+import { Doctor } from './Doctor'; // Assuming you have a Doctor model
 
-type Doctor = {
-  id: number;
-  name: string;
-  specialty: string;
-};
+interface DoctorManagementProps {}
 
-const HospitalManagementSystem: React.FC = () => {
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    { id: 1, name: 'John Doe', specialty: 'Cardiology' },
-    { id: 2, name: 'Jane Smith', specialty: 'Orthopedics' },
-    { id: 3, name: 'Sam Brown', specialty: 'Dermatology' },
+const DoctorManagement: React.FC<DoctorManagementProps> = () => {
+  const [doctors, setDoctors] = useState([
+    { id: 1, name: 'Dr. John Doe', specialty: 'Cardiology' },
+    { id: 2, name: 'Dr. Jane Smith', specialty: 'Pediatrics' },
+    // Add more doctors as needed
   ]);
 
   return (
-    <div className="container">
-      <h1>Doctor Management System</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Specialty</th>
-          </tr>
-        </thead>
-        <tbody>
-          {doctors.map((doctor) => (
-            <tr key={doctor.id}>
-              <td>{doctor.id}</td>
-              <td>{doctor.name}</td>
-              <td>{doctor.specialty}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <h1>Doctor Management</h1>
+      <ul>
+        {doctors.map((doctor) => (
+          <li key={doctor.id}>
+            <Doctor doctor={doctor} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
 
-export default HospitalManagementSystem;
+export default DoctorManagement;

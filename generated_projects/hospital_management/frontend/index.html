@@ -1,15 +1,14 @@
-// src/main.tsx
-
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-
-const App: React.FC = () => {
-  return (
-    <div>
-      <h1>Welcome to Hospital Management System</h1>
-      {/* Add more components and logic here */}
-    </div>
-  );
-};
-
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(<App />);
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Management System</title>
+    <link rel="stylesheet" href="/index.css"> <!-- Path to your global styles -->
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script> <!-- Ensure the module path is correct -->
+</body>
+</html>

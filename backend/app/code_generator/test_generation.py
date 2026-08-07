@@ -17,50 +17,28 @@ def main() -> None:
     frontend_generator = FrontendGenerator()
 
     generation_tasks = [
-        (
-            "package.json",
-            "Generate a valid React + TypeScript Vite package.json for a hospital management frontend project",
-        ),
-        (
-            "index.html",
-            "Generate a Vite-compatible index.html that loads the React application from src/main.tsx",
-        ),
-        (
-            "src/App.tsx",
-            "Generate a React App component that imports and demonstrates Login, Dashboard, Patients, and Doctors components",
-        ),
-        (
-            "src/main.tsx",
-            "Generate a valid React entry point for Vite that mounts App into the document root",
-        ),
-        (
-            "src/Login.tsx",
-            "Create a React login page with email, password and login button",
-        ),
-        (
-            "src/Dashboard.tsx",
-            "Create a hospital dashboard page showing summary cards",
-        ),
-        (
-            "src/Patients.tsx",
-            "Create a patient management page with a patient list",
-        ),
-        (
-            "src/Doctors.tsx",
-            "Create a doctor management page with a doctor list",
-        ),
+        ("package.json", "Generate a valid React + TypeScript Vite package.json for a hospital management frontend project"),
+        ("index.html", "Generate a Vite-compatible index.html that loads the React application from src/main.tsx"),
+        ("src/App.tsx", "Generate a React App component that imports and demonstrates Login, Dashboard, Patients, and Doctors components"),
+        ("src/main.tsx", "Generate a valid React entry point for Vite that mounts App into the document root"),
+        ("src/Login.tsx", "Create a React login page with email, password and login button"),
+        ("src/Dashboard.tsx", "Create a hospital dashboard page showing summary cards"),
+        ("src/Patients.tsx", "Create a patient management page with a patient list"),
+        ("src/Doctors.tsx", "Create a doctor management page with a doctor list"),
     ]
 
     generated_files: list[GeneratedFile] = []
 
     for filename, requirements in generation_tasks:
-        generated_code = frontend_generator.generate(project_name, requirements)
-        generated_files.append(
-            GeneratedFile(
-                path=f"generated_projects/hospital_management/frontend/{filename}",
-                content=generated_code,
-            )
-        )
+        if filename == "package.json":
+            generated_code = frontend_generator.generate_package_json(project_name, requirements)
+        elif filename == "index.html":
+            generated_code = frontend_generator.generate_index_html(project_name, requirements)
+        else:
+            # Generate each TSX/entry file separately
+            generated_code = frontend_generator.generate_tsx(project_name, requirements)
+
+        generated_files.append(GeneratedFile(path=f"generated_projects/hospital_management/frontend/{filename}", content=generated_code))
 
     created_paths = file_writer.write_files(generated_files)
 

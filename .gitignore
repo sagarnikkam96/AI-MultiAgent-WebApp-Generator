@@ -16,3 +16,9 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+ 
+# Frontend build output
+frontend/dist/
+
+# Generated project frontend build outputs
+generated_projects/**/frontend/dist/

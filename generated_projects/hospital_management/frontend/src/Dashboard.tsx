@@ -1,44 +1,29 @@
-import { useState } from 'react';
-import axios from 'axios';
+import React from 'react';
+import { Card } from '@mui/material';
 
-interface HospitalSummary {
-  name: string;
-  patientsCount: number;
-  bedsAvailable: number;
+interface HospitalDashboardProps {
+  patientCount: number;
+  doctorCount: number;
+  appointmentCount: number;
 }
 
-const HospitalDashboard = () => {
-  const [summary, setSummary] = useState<HospitalSummary | null>(null);
+const HospitalDashboard: React.FC<HospitalDashboardProps> = ({ patientCount, doctorCount, appointmentCount }) => (
+  <div>
+    <Card sx={{ margin: '20px' }}>
+      <h2>Patient Summary</h2>
+      <p>Total Patients: {patientCount}</p>
+    </Card>
 
-  useEffect(() => {
-    axios.get('/api/hospital-summary')
-      .then(response => {
-        setSummary(response.data);
-      })
-      .catch(error => {
-        console.error('Error fetching hospital summary:', error);
-      });
-  }, []);
+    <Card sx={{ margin: '20px' }}>
+      <h2>Doctor Summary</h2>
+      <p>Total Doctors: {doctorCount}</p>
+    </Card>
 
-  return (
-    <div className="dashboard">
-      {summary ? (
-        <>
-          <h1>Hospital Management System</h1>
-          <div className="summary-cards">
-            <div className="card">
-              <h2>Name: {summary.name}</h2>
-              <p>Patients Count: {summary.patientsCount}</p>
-              <p>Beds Available: {summary.bedsAvailable}</p>
-            </div>
-            {/* Add more cards as needed */}
-          </div>
-        </>
-      ) : (
-        <p>Loading...</p>
-      )}
-    </div>
-  );
-};
+    <Card sx={{ margin: '20px' }}>
+      <h2>Appointment Summary</h2>
+      <p>Total Appointments: {appointmentCount}</p>
+    </Card>
+  </div>
+);
 
 export default HospitalDashboard;

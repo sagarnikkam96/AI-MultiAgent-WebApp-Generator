@@ -1,45 +1,43 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
-type LoginFormState = {
-  email: string;
-  password: string;
-};
+interface LoginFormProps {
+  onLogin: (email: string, password: string) => void;
+}
 
-const LoginPage = () => {
-  const [formState, setFormState] = useState<LoginFormState>({
-    email: '',
-    password: '',
-  });
+const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // Handle login logic here
-    console.log('Logging in with:', formState);
+  const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(event.target.value);
+  };
+
+  const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(event.target.value);
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onLogin(email, password);
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <div>
-        <label htmlFor="email">Email:</label>
+        <label>Email:</label>
         <input
           type="email"
-          id="email"
-          value={formState.email}
-          onChange={(e) =>
-            setFormState({ ...formState, email: e.target.value })
-          }
+          value={email}
+          onChange={handleEmailChange}
           required
         />
       </div>
       <div>
-        <label htmlFor="password">Password:</label>
+        <label>Password:</label>
         <input
           type="password"
-          id="password"
-          value={formState.password}
-          onChange={(e) =>
-            setFormState({ ...formState, password: e.target.value })
-          }
+          value={password}
+          onChange={handlePasswordChange}
           required
         />
       </div>
@@ -48,4 +46,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default LoginForm;

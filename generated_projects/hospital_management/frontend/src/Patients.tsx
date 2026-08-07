@@ -1,20 +1,25 @@
-import React from 'react';
-import { useState } from 'react';
+import React from "react";
 
-const HospitalManagementSystem: React.FC = () => {
-  const [patients, setPatients] = useState([
-    { id: 1, name: 'John Doe', age: 30 },
-    { id: 2, name: 'Jane Smith', age: 25 },
-    // Add more patient data as needed
-  ]);
+interface Patient {
+  id: number;
+  name: string;
+  age: number;
+}
+
+const PatientManagementPage = () => {
+  const patients: Patient[] = [
+    { id: 1, name: "John Doe", age: 30 },
+    { id: 2, name: "Jane Smith", age: 25 },
+    // Add more patient records here
+  ];
 
   return (
     <div>
-      <h1>Patient Management System</h1>
+      <h1>Patient Management</h1>
       <ul>
-        {patients.map(patient => (
+        {patients.map((patient) => (
           <li key={patient.id}>
-            {patient.name} - {patient.age}
+            {patient.name}, {patient.age} years old
           </li>
         ))}
       </ul>
@@ -22,4 +27,4 @@ const HospitalManagementSystem: React.FC = () => {
   );
 };
 
-export default HospitalManagementSystem;
+export default PatientManagementPage;
