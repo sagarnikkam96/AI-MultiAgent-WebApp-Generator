@@ -1,0 +1,53 @@
+// src/App.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+
+const App: React.FC = () => {
+  const [hospitalData, setHospitalData] = React.useState<{ name: string; id: number }[]>([]);
+
+  // Example data fetching function
+  const fetchData = async () => {
+    try {
+      const response = await fetch('/api/hospitals');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setHospitalData(data);
+    } catch (error) {
+      console.error('Error fetching hospital data:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchData();
+  }, []);
+
+  return (
+    <div className="App">
+      <h1>Hospital Management System</h1>
+      <ul>
+        {hospitalData.map(hospital => (
+          <li key={hospital.id}>{hospital.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+
+// src/vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+});
+
+**Note**: This code assumes you have a backend API (`/api/hospitals`) that returns an array of hospital objects. The `fetchData` function is a placeholder for the actual data fetching logic, which should be replaced with your actual backend endpoint URL and handling.

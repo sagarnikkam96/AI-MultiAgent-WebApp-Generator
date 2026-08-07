@@ -103,3 +103,17 @@ Enhanced the extraction logic to recognize prompts beginning with
 
 Result:
 Project names are now correctly extracted from natural language prompts.
+
+Bug:006
+AI generated invalid package.json containing React/TypeScript code.
+
+Error:
+npm ERR! JSON.parse Invalid package.json
+Unexpected token "/" ...
+
+Cause:
+The code generator used an unsuitable AI generation prompt/response for package.json.
+
+Fix:
+Generate each file type separately and validate package.json with json.loads()
+before writing it.
