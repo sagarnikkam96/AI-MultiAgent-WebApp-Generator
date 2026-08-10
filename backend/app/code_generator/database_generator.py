@@ -21,45 +21,29 @@ class DatabaseGenerator(CodeGenerator):
         project_root = f"generated_projects/{project_slug}/backend"
         return [
             GeneratedFile(
-                path=f"{project_root}/database/models.py",
-                content=self._database_models_placeholder(),
-            ),
-            GeneratedFile(
-                path=f"{project_root}/database/session.py",
-                content=self._database_session_placeholder(),
+                path=f"{project_root}/database/base.py",
+                content=self._database_base_placeholder(),
             ),
         ]
 
     def _project_slug(self, requirements: str) -> str:
         text = requirements.lower()
         text = re.sub(r"[^a-z0-9\s-]", " ", text)
+        text = re.sub(
+            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|tasks|task|patients|doctors|billing|products|cart|orders)\b",
+            " ",
+            text,
+        )
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
             return "generated_project"
         slug = "_".join(text.split()[:4])
         return slug[:50].strip("_") or "generated_project"
 
-    def _database_models_placeholder(self) -> str:
-        """Return a placeholder SQLAlchemy models file."""
+    def _database_base_placeholder(self) -> str:
+        """Return a lightweight SQLAlchemy base module."""
         return (
-            "from sqlalchemy import Column, Integer, String\n"
-            "from sqlalchemy.ext.declarative import declarative_base\n"
+            "from sqlalchemy.orm import declarative_base\n"
             "\n"
             "Base = declarative_base()\n"
-            "\n"
-            "class User(Base):\n"
-            "    __tablename__ = 'users'\n"
-            "    id = Column(Integer, primary_key=True, index=True)\n"
-            "    name = Column(String, nullable=False)\n"
-        )
-
-    def _database_session_placeholder(self) -> str:
-        """Return a placeholder SQLAlchemy session file."""
-        return (
-            "from sqlalchemy import create_engine\n"
-            "from sqlalchemy.orm import sessionmaker\n"
-            "\n"
-            "DATABASE_URL = 'postgresql://user:password@localhost:5432/database'\n"
-            "engine = create_engine(DATABASE_URL)\n"
-            "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)\n"
         )

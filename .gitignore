@@ -22,3 +22,7 @@ frontend/dist/
 
 # Generated project frontend build outputs
 generated_projects/**/frontend/dist/
+# TypeScript/Vite generated files
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts

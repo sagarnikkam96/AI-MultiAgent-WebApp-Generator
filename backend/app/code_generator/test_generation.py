@@ -23,9 +23,9 @@ def main() -> None:
         ("src/App.tsx", "Generate a React App component that imports and demonstrates Login, Dashboard, Patients, and Doctors components"),
         ("src/main.tsx", "Generate a valid React entry point for Vite that mounts App into the document root"),
         ("src/Login.tsx", "Create a React login page with email, password and login button"),
-        ("src/Dashboard.tsx", "Create a hospital dashboard page showing summary cards"),
-        ("src/Patients.tsx", "Create a patient management page with a patient list"),
-        ("src/Doctors.tsx", "Create a doctor management page with a doctor list"),
+        ("src/Dashboard.tsx", "Create a dashboard page with responsive statistic cards"),
+        ("src/SectionOne.tsx", "Create a modern section component with a list or table for the first domain area"),
+        ("src/SectionTwo.tsx", "Create a modern section component with a list or table for the second domain area"),
     ]
 
     generated_files: list[GeneratedFile] = []
@@ -35,11 +35,38 @@ def main() -> None:
             generated_code = frontend_generator.generate_package_json(project_name, requirements)
         elif filename == "index.html":
             generated_code = frontend_generator.generate_index_html(project_name, requirements)
+        elif filename == "src/main.tsx":
+            generated_code = frontend_generator.generate_main_tsx()
         else:
-            # Generate each TSX/entry file separately
-            generated_code = frontend_generator.generate_tsx(project_name, requirements)
+            # Generate each TSX component file separately
+            generated_code = frontend_generator.generate_tsx(project_name, requirements, filename=filename)
 
         generated_files.append(GeneratedFile(path=f"generated_projects/hospital_management/frontend/{filename}", content=generated_code))
+
+    generated_files.append(GeneratedFile(
+        path="generated_projects/hospital_management/frontend/src/styles.css",
+        content=frontend_generator.generate_styles_css(project_name, 'Generate shared application CSS for the React frontend'),
+    ))
+
+    # Generate deterministic frontend config files used by the Vite/TypeScript build.
+    generated_files.extend([
+        GeneratedFile(
+            path="generated_projects/hospital_management/frontend/tsconfig.json",
+            content=frontend_generator.generate_tsconfig_json(),
+        ),
+        GeneratedFile(
+            path="generated_projects/hospital_management/frontend/tsconfig.app.json",
+            content=frontend_generator.generate_tsconfig_app_json(),
+        ),
+        GeneratedFile(
+            path="generated_projects/hospital_management/frontend/tsconfig.node.json",
+            content=frontend_generator.generate_tsconfig_node_json(),
+        ),
+        GeneratedFile(
+            path="generated_projects/hospital_management/frontend/vite.config.ts",
+            content=frontend_generator.generate_vite_config_ts(),
+        ),
+    ])
 
     created_paths = file_writer.write_files(generated_files)
 

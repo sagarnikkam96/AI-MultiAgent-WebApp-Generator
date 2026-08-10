@@ -1,21 +1,23 @@
 import React from 'react';
-import { Card } from 'antd';
 
-const HospitalDashboardPage: React.FC = () => {
+const Dashboard: React.FC = () => {
+  const stats = [
+    { label: 'Total Patients', value: '1,280' },
+    { label: 'Active Doctors', value: '72' },
+    { label: 'Open Appointments', value: '34' },
+    { label: 'Available Beds', value: '18' },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Summary Cards */}
-      <Card title="Patients">
-        <p>10,500 registered</p>
-      </Card>
-      <Card title="Doctors">
-        <p>80 available</p>
-      </Card>
-      <Card title="Appointments Today">
-        <p>250 pending</p>
-      </Card>
+    <div className="dashboard-grid">
+      {stats.map((stat, index) => (
+        <div key={index} className="dashboard-card">
+          <span className="stat-label">{stat.label}</span>
+          <strong>{stat.value}</strong>
+        </div>
+      ))}
     </div>
   );
 };
 
-export default HospitalDashboardPage;
+export default Dashboard;

@@ -1,7 +1,10 @@
-import { createApp } from 'vue';
-import App from './App.vue';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles.css';
 
-const app = createApp(App);
-app.mount('#app');
-
-Note: Ensure you have a `main.ts` file in your project root, which imports the Vue application and mounts it to the DOM.
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

@@ -4,28 +4,44 @@ interface Patient {
   id: number;
   name: string;
   age: number;
-  symptoms: string[];
 }
 
-const PatientManagementPage: React.FC = () => {
-  const [patients, setPatients] = React.useState<Patient[]>([
-    { id: 1, name: "John Doe", age: 30, symptoms: ["Fever"] },
-    { id: 2, name: "Jane Smith", age: 45, symptoms: ["Cough"] },
-    { id: 3, name: "Emily Johnson", age: 60, symptoms: ["Headache"] },
-  ]);
+const Patients = () => {
+  const [patients, setPatients] = React.useState<Patient[]>([]);
+  const [newPatientName, setNewPatientName] = React.useState('');
+  const [newPatientAge, setNewPatientAge] = React.useState('0');
+
+  const handleAddPatient = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (newPatientName.trim() !== '' && newPatientAge.trim() !== '') {
+      setPatients([...patients, { id: patients.length + 1, name: newPatientName, age: parseInt(newPatientAge) }]);
+      setNewPatientName('');
+      setNewPatientAge('0');
+    }
+  };
 
   return (
     <div>
       <h1>Patient Management System</h1>
+      <form onSubmit={handleAddPatient}>
+        <input
+          type="text"
+          placeholder="Name"
+          value={newPatientName}
+          onChange={(e) => setNewPatientName(e.target.value)}
+        />
+        <input
+          type="number"
+          placeholder="Age"
+          value={newPatientAge}
+          onChange={(e) => setNewPatientAge(e.target.value)}
+        />
+        <button type="submit">Add Patient</button>
+      </form>
       <ul>
         {patients.map((patient) => (
           <li key={patient.id}>
-            <strong>{patient.name}</strong> - {patient.age}
-            <ul>
-              {patient.symptoms.map((symptom, index) => (
-                <li key={index}>{symptom}</li>
-              ))}
-            </ul>
+            {patient.name} - {patient.age}
           </li>
         ))}
       </ul>
@@ -33,4 +49,4 @@ const PatientManagementPage: React.FC = () => {
   );
 };
 
-export default PatientManagementPage;
+export default Patients;
