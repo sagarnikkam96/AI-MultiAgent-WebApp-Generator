@@ -43,7 +43,7 @@ class BackendGenerator(CodeGenerator):
             generated_files.append(
                 GeneratedFile(
                     path=f"{project_root}/database/session.py",
-                    content=self._database_session_content(),
+                    content=self._database_session_content(has_postgres),
                 )
             )
             generated_files.append(
@@ -122,7 +122,14 @@ class BackendGenerator(CodeGenerator):
         generated_files.append(
             GeneratedFile(
                 path=f"{project_root}/main.py",
-                content=self._main_content(has_auth),
+                content=self._main_content(requires_database),
+            )
+        )
+
+        generated_files.append(
+            GeneratedFile(
+                path=f"{project_root}/requirements.txt",
+                content=self._requirements_content(has_postgres),
             )
         )
 
@@ -132,15 +139,45 @@ class BackendGenerator(CodeGenerator):
         text = requirements.lower()
         text = re.sub(r"[^a-z0-9\s-]", " ", text)
         text = re.sub(
-            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|tasks|task|patients|doctors|billing|products|cart|orders)\b",
+            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|patients|doctors|billing|products|cart|orders)\b",
             " ",
             text,
         )
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
             return "generated_project"
-        slug = "_".join(text.split()[:4])
+
+        words = [self._normalize_slug_word(word) for word in text.split()]
+        unique_words: list[str] = []
+        seen: set[str] = set()
+        for word in words:
+            if not word or word in seen:
+                continue
+            seen.add(word)
+            unique_words.append(word)
+
+        slug = "_".join(unique_words[:4])
         return slug[:50].strip("_") or "generated_project"
+
+    def _normalize_slug_word(self, word: str) -> str:
+        normalized = word.lower()
+        singular_map = {
+            "tasks": "task",
+            "todos": "todo",
+            "users": "user",
+            "products": "product",
+            "orders": "order",
+            "carts": "cart",
+            "appointments": "appointment",
+            "categories": "category",
+            "patients": "patient",
+            "doctors": "doctor",
+            "notes": "note",
+            "posts": "post",
+            "messages": "message",
+            "invoices": "invoice",
+        }
+        return singular_map.get(normalized, normalized)
 
     def _table_name(self, entity: str) -> str:
         lower_entity = entity.lower()
@@ -241,15 +278,11 @@ class BackendGenerator(CodeGenerator):
             "auth",
             "jwt",
             "token",
-            "management",
-            "managements",
             "dashboard",
             "backend",
             "frontend",
-            "user",
-            "users",
-            "task",
-            "tasks",
+            "project",
+            "projects",
         }
 
         entities: list[str] = []
@@ -306,7 +339,25 @@ class BackendGenerator(CodeGenerator):
             "        db.close()\n"
         )
 
-    def _database_session_content(self) -> str:
+    def _database_session_content(self, use_postgres: bool) -> str:
+        if use_postgres:
+            return (
+                "import os\n"
+                "from sqlalchemy import create_engine\n"
+                "from sqlalchemy.orm import sessionmaker\n"
+                "\n"
+                "DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/app_db')\n"
+                "engine = create_engine(DATABASE_URL, future=True)\n"
+                "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)\n"
+                "\n"
+                "def get_db():\n"
+                "    db = SessionLocal()\n"
+                "    try:\n"
+                "        yield db\n"
+                "    finally:\n"
+                "        db.close()\n"
+            )
+
         return (
             "from sqlalchemy import create_engine\n"
             "from sqlalchemy.orm import sessionmaker\n"
@@ -665,19 +716,65 @@ class BackendGenerator(CodeGenerator):
             "        return False\n"
         )
 
-    def _main_content(self, has_auth: bool) -> str:
-        return (
-            "from fastapi import FastAPI\n"
-            "from routers.routes import router\n"
-            "\n"
-            "app = FastAPI(title='Generated FastAPI Backend')\n"
-            "\n"
-            "app.include_router(router)\n"
-            "\n"
-            "@app.get('/')\n"
-            "async def read_root() -> dict[str, str]:\n"
-            "    return {'message': 'Generated backend is running'}\n"
+    def _main_content(self, requires_database: bool) -> str:
+        lines = [
+            "from fastapi import FastAPI\n",
+            "from fastapi.middleware.cors import CORSMiddleware\n",
+        ]
+        if requires_database:
+            lines.extend(
+                [
+                    "from contextlib import asynccontextmanager\n",
+                    "from database.connection import engine\n",
+                    "from models.models import Base\n",
+                ]
+            )
+        lines.append("from routers.routes import router\n")
+        lines.append("\n")
+        if requires_database:
+            lines.extend(
+                [
+                    "@asynccontextmanager\n",
+                    "async def lifespan(app: FastAPI):\n",
+                    "    Base.metadata.create_all(bind=engine)\n",
+                    "    yield\n",
+                    "\n",
+                ]
+            )
+        lines.append("app = FastAPI(title='Generated FastAPI Backend'")
+        if requires_database:
+            lines.append(", lifespan=lifespan")
+        lines.append(")\n")
+        lines.append("\n")
+        lines.extend(
+            [
+                "app.add_middleware(\n",
+                "    CORSMiddleware,\n",
+                "    allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'],\n",
+                "    allow_credentials=True,\n",
+                "    allow_methods=['*'],\n",
+                "    allow_headers=['*'],\n",
+                ")\n",
+                "\n",
+            ]
         )
+        lines.append("app.include_router(router)\n")
+        lines.append("\n")
+        lines.extend(
+            [
+                "@app.get('/')\n",
+                "async def read_root() -> dict[str, str]:\n",
+                "    return {'message': 'Generated backend is running'}\n",
+            ]
+        )
+        return "".join(lines)
+
+    def _requirements_content(self, has_postgres: bool) -> str:
+        """Return the dependency manifest required by the generated backend."""
+        requirements = ["fastapi", "uvicorn", "sqlalchemy", "pydantic"]
+        if has_postgres:
+            requirements.append("psycopg2-binary")
+        return "".join(f"{requirement}\n" for requirement in requirements)
 
     def _package_init_content(self) -> str:
         return "# Package initialization\n"

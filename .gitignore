@@ -26,3 +26,30 @@ generated_projects/**/frontend/dist/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# Backup / editor backup files
+*.backup
+
+# Backend exports and generated output (not repo source)
+backend/exports/
+backend/generated_projects/
+
+# Temporary inspection / validation / regeneration scripts
+backend/build_task_management.py
+backend/e2e_test_generate.py
+backend/inspect_slug.py
+backend/inspect_task_generation.py
+backend/regenerate_management_backend.py
+backend/validate_task_backend_runtime.py
+backend/validate_task_management.py
+
+# Root package-lock.json (frontend has its own lockfile; root Python project does not use npm)
+/package-lock.json
+
+# Untracked generated sub-projects kept out of the repo
+generated_projects/task_management/
+generated_projects/management/backend/requirements.txt
+
+# Stray PowerShell activation artifact file
+*Activate.ps1)
+

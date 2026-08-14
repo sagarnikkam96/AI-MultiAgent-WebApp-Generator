@@ -103,6 +103,7 @@ def run_backend_generation_test() -> None:
         file_writer.base_path / f"generated_projects/{project_slug}/backend/models/models.py",
         file_writer.base_path / f"generated_projects/{project_slug}/backend/schemas/schemas.py",
         file_writer.base_path / f"generated_projects/{project_slug}/backend/routers/routes.py",
+        file_writer.base_path / f"generated_projects/{project_slug}/backend/requirements.txt",
     ]
 
     missing = [str(path) for path in expected_paths if not path.exists()]
@@ -117,6 +118,13 @@ def run_backend_generation_test() -> None:
                 __import__("ast").parse(source)
             except SyntaxError as exc:
                 raise SystemExit(f"Generated Python file {path} contains syntax error: {exc}")
+
+    # Validate generated dependency manifest for the backend
+    requirements_path = file_writer.base_path / f"generated_projects/{project_slug}/backend/requirements.txt"
+    requirements_text = requirements_path.read_text(encoding="utf-8")
+    for dependency in ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "psycopg2-binary"]:
+        if dependency not in requirements_text:
+            raise SystemExit(f"Generated requirements.txt is missing '{dependency}'")
 
     # Validate generated JSON output for package.json via frontend generator
     package_json = frontend_generator.generate_package_json("Task Management", prompt)

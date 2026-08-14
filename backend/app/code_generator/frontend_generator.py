@@ -9,6 +9,193 @@ from .code_generator import CodeGenerator, PromptProvider
 from .code_schema import GeneratedFile
 
 
+_APP_TSX = """import React from 'react';
+import Login from './Login';
+import Dashboard from './Dashboard';
+import SectionOne from './SectionOne';
+import SectionTwo from './SectionTwo';
+
+export interface AppRecord {
+  id: number;
+  name: string;
+  role: string;
+  createdAt: string;
+}
+
+const App: React.FC = () => {
+  const [user, setUser] = React.useState<string | null>(null);
+  const [message, setMessage] = React.useState<string | null>(null);
+  const [records, setRecords] = React.useState<AppRecord[]>([]);
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createName, setCreateName] = React.useState('');
+  const [createRole, setCreateRole] = React.useState('');
+
+  const notify = (text: string) => {
+    setMessage(text);
+    window.setTimeout(() => setMessage(null), 4000);
+  };
+
+  const handleLogin = (email: string) => {
+    setUser(email);
+    notify(`Welcome back, ${email}! You are now signed in.`);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    notify('You have been signed out.');
+  };
+
+  const openCreate = () => {
+    if (!user) {
+      notify('Please sign in first to create a new record.');
+      return;
+    }
+    setCreateName('');
+    setCreateRole('');
+    setShowCreate(true);
+  };
+
+  const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const name = createName.trim();
+    if (!name) return;
+    const record: AppRecord = {
+      id: Date.now(),
+      name,
+      role: createRole.trim() || 'Member',
+      createdAt: new Date().toLocaleString(),
+    };
+    setRecords((prev) => [record, ...prev]);
+    setShowCreate(false);
+    notify(`Created record "${name}" successfully.`);
+  };
+
+  const handleInsights = () => {
+    document.getElementById('section-2')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">__APP_LABEL__</div>
+        <nav className="nav-list">
+          <a href="#dashboard" className="active">Dashboard</a>
+          <a href="#section-1">__SECTION_ONE__</a>
+          <a href="#section-2">__SECTION_TWO__</a>
+          <a href="#quick-access">Quick Access</a>
+        </nav>
+        {user ? (
+          <div className="sidebar-user">
+            <span className="avatar">{user[0]?.toUpperCase()}</span>
+            <div>
+              <strong>{user}</strong>
+              <button type="button" className="btn-ghost" onClick={handleLogout}>Sign Out</button>
+            </div>
+          </div>
+        ) : (
+          <p className="muted">Not signed in</p>
+        )}
+      </aside>
+
+      <main className="page-content">
+        <header className="topbar">
+          <h1>__APP_LABEL__</h1>
+          <div className="top-actions">
+            <button type="button" onClick={openCreate}>Create New</button>
+            <button type="button" onClick={handleInsights}>Insights</button>
+          </div>
+        </header>
+
+        {message && <div className="banner">{message}</div>}
+
+        <section id="dashboard" className="content-block">
+          <Dashboard records={records} />
+        </section>
+
+        <section id="section-1" className="content-block grid-block">
+          <div>
+            <SectionOne />
+          </div>
+          <div>
+            <SectionTwo />
+          </div>
+        </section>
+
+        <section id="section-2" className="content-block">
+          <h2>Reports &amp; Insights</h2>
+          <p className="muted">Records created in this workspace.</p>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Role</th><th>Created</th></tr>
+            </thead>
+            <tbody>
+              {records.length === 0 ? (
+                <tr><td colSpan={4} className="muted">No records yet. Click Create New to add one.</td></tr>
+              ) : (
+                records.map((r, index) => (
+                  <tr key={r.id}>
+                    <td>{index + 1}</td>
+                    <td>{r.name}</td>
+                    <td>{r.role}</td>
+                    <td>{r.createdAt}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <section id="quick-access" className="content-block">
+          <div className="panel">
+            <h2>Quick Access</h2>
+            {user ? (
+              <p className="muted signed-in-msg">
+                ✅ You are signed in as <strong>{user}</strong>. Use Create New to add records.
+              </p>
+            ) : (
+              <Login onLogin={handleLogin} />
+            )}
+          </div>
+        </section>
+      </main>
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+          <form className="modal" onSubmit={handleCreate} onClick={(e) => e.stopPropagation()}>
+            <h2>Create New Record</h2>
+            <label>
+              Name
+              <input
+                autoFocus
+                type="text"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="e.g. Alex Johnson"
+                required
+              />
+            </label>
+            <label>
+              Role / Type
+              <input
+                type="text"
+                value={createRole}
+                onChange={(e) => setCreateRole(e.target.value)}
+                placeholder="e.g. Student, Patient, Staff..."
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button type="submit">Create</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
+""";
 class FrontendGenerator(CodeGenerator):
     """Generates frontend code artifacts for Version 2."""
 
@@ -96,77 +283,45 @@ class FrontendGenerator(CodeGenerator):
         return cleaned_text
 
     def generate_app_tsx(self, project_name: str, requirements: str) -> str:
-        """Return a deterministic App component for the React frontend."""
+        """Return a deterministic, interactive App component (see _APP_TSX)."""
         context = self._infer_domain_context(project_name, requirements)
         return (
-            "import React from 'react';\n"
-            "import Login from './Login';\n"
-            "import Dashboard from './Dashboard';\n"
-            "import SectionOne from './SectionOne';\n"
-            "import SectionTwo from './SectionTwo';\n"
-            "\n"
-            "const App: React.FC = () => {\n"
-            "  return (\n"
-            "    <div className=\"app-shell\">\n"
-            "      <aside className=\"sidebar\">\n"
-            f"        <div className=\"brand\">{context['app_label']}</div>\n"
-            "        <nav className=\"nav-list\">\n"
-            "          <a href=\"#dashboard\" className=\"active\">Dashboard</a>\n"
-            f"          <a href=\"#section-1\">{context['section_one']}</a>\n"
-            f"          <a href=\"#section-2\">{context['section_two']}</a>\n"
-            "          <a href=\"#quick-access\">Quick Access</a>\n"
-            "        </nav>\n"
-            "      </aside>\n"
-            "      <main className=\"page-content\">\n"
-            "        <header className=\"topbar\">\n"
-            f"          <h1>{context['app_label']}</h1>\n"
-            "          <div className=\"top-actions\">\n"
-            "            <button type=\"button\">Create New</button>\n"
-            "            <button type=\"button\">Insights</button>\n"
-            "          </div>\n"
-            "        </header>\n"
-            "\n"
-            "        <section id=\"dashboard\" className=\"content-block\">\n"
-            "          <Dashboard />\n"
-            "        </section>\n"
-            "\n"
-            "        <section id=\"section-1\" className=\"content-block grid-block\">\n"
-            "          <div>\n"
-            "            <SectionOne />\n"
-            "          </div>\n"
-            "          <div>\n"
-            "            <SectionTwo />\n"
-            "          </div>\n"
-            "        </section>\n"
-            "\n"
-            "        <section id=\"quick-access\" className=\"content-block\">\n"
-            "          <div className=\"panel\">\n"
-            "            <h2>Quick Access</h2>\n"
-            "            <Login />\n"
-            "          </div>\n"
-            "        </section>\n"
-            "      </main>\n"
-            "    </div>\n"
-            "  );\n"
-            "};\n"
-            "\n"
-            "export default App;\n"
+            _APP_TSX
+            .replace("__APP_LABEL__", context["app_label"])
+            .replace("__SECTION_ONE__", context["section_one"])
+            .replace("__SECTION_TWO__", context["section_two"])
         )
 
     def generate_login_tsx(self, project_name: str, requirements: str) -> str:
-        """Return a deterministic Login component with no required props."""
+        """Return a deterministic Login component that signs the user in via onLogin."""
         context = self._infer_domain_context(project_name, requirements)
         return (
             "import React from 'react';\n"
             "\n"
-            "const Login: React.FC = () => {\n"
+            "interface LoginProps {\n"
+            "  onLogin: (email: string) => void;\n"
+            "}\n"
+            "\n"
+            "const Login: React.FC<LoginProps> = ({ onLogin }) => {\n"
             "  const [email, setEmail] = React.useState('');\n"
             "  const [password, setPassword] = React.useState('');\n"
+            "  const [submitted, setSubmitted] = React.useState(false);\n"
             "\n"
             "  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {\n"
             "    e.preventDefault();\n"
-            "    console.log('Login submitted', { email, password });\n"
+            "    if (!email.trim()) return;\n"
+            "    onLogin(email.trim());\n"
+            "    setSubmitted(true);\n"
             "  };\n"
+            "\n"
+            "  if (submitted) {\n"
+            "    return (\n"
+            "      <div className=\"login-card\">\n"
+            "        <h2>Signed in!</h2>\n"
+            "        <p className=\"muted\">Successfully signed in as {email}. You can now create new records.</p>\n"
+            "      </div>\n"
+            "    );\n"
+            "  }\n"
             "\n"
             "  return (\n"
             "    <div className=\"login-card\">\n"
@@ -179,6 +334,7 @@ class FrontendGenerator(CodeGenerator):
             "            type=\"email\"\n"
             "            value={email}\n"
             "            onChange={(e) => setEmail(e.target.value)}\n"
+            "            placeholder=\"you@example.com\"\n"
             "            required\n"
             "          />\n"
             "        </label>\n"
@@ -188,10 +344,12 @@ class FrontendGenerator(CodeGenerator):
             "            type=\"password\"\n"
             "            value={password}\n"
             "            onChange={(e) => setPassword(e.target.value)}\n"
+            "            placeholder=\"••••••••\"\n"
             "            required\n"
             "          />\n"
             "        </label>\n"
             "        <button type=\"submit\">Sign In</button>\n"
+            "        <p className=\"form-note\">Demo login — any email &amp; password works here.</p>\n"
             "      </form>\n"
             "    </div>\n"
             "  );\n"
@@ -201,12 +359,17 @@ class FrontendGenerator(CodeGenerator):
         )
 
     def generate_dashboard_tsx(self, project_name: str, requirements: str) -> str:
-        """Return a deterministic Dashboard component for the React frontend."""
+        """Return a deterministic Dashboard showing metrics and records created in the UI."""
         context = self._infer_domain_context(project_name, requirements)
         return (
             "import React from 'react';\n"
+            "import type { AppRecord } from './App';\n"
             "\n"
-            "const Dashboard: React.FC = () => {\n"
+            "interface DashboardProps {\n"
+            "  records: AppRecord[];\n"
+            "}\n"
+            "\n"
+            "const Dashboard: React.FC<DashboardProps> = ({ records }) => {\n"
             "  const stats = [\n"
             f"    {{ label: '{context['metric_one_name']}', value: '{context['metric_one_value']}' }},\n"
             f"    {{ label: '{context['metric_two_name']}', value: '{context['metric_two_value']}' }},\n"
@@ -215,14 +378,31 @@ class FrontendGenerator(CodeGenerator):
             "  ];\n"
             "\n"
             "  return (\n"
-            "    <div className=\"dashboard-grid\">\n"
-            "      {stats.map((stat, index) => (\n"
-            "        <div key={index} className=\"dashboard-card\">\n"
-            "          <span className=\"stat-label\">{stat.label}</span>\n"
-            "          <strong>{stat.value}</strong>\n"
-            "        </div>\n"
-            "      ))}\n"
-            "    </div>\n"
+            "    <>\n"
+            "      <div className=\"dashboard-grid\">\n"
+            "        {stats.map((stat, index) => (\n"
+            "          <div key={index} className=\"dashboard-card\">\n"
+            "            <span className=\"stat-label\">{stat.label}</span>\n"
+            "            <strong>{stat.value}</strong>\n"
+            "          </div>\n"
+            "        ))}\n"
+            "      </div>\n"
+            "\n"
+            "      <div className=\"dashboard-record-section\">\n"
+            "        <h2>Recently created</h2>\n"
+            "        {records.length === 0 ? (\n"
+            "          <p className=\"muted\">Nothing created yet — use the Create New button (sign in first).</p>\n"
+            "        ) : (\n"
+            "          <ul className=\"resource-list\">\n"
+            "            {records.slice(0, 4).map((r) => (\n"
+            "              <li key={r.id}>\n"
+            "                <strong>{r.name}</strong> — {r.role} · {r.createdAt}\n"
+            "              </li>\n"
+            "            ))}\n"
+            "          </ul>\n"
+            "        )}\n"
+            "      </div>\n"
+            "    </>\n"
             "  );\n"
             "};\n"
             "\n"
@@ -388,6 +568,65 @@ class FrontendGenerator(CodeGenerator):
             "input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15); }\n"
             ".login-card { display: grid; gap: 18px; }\n"
             ".login-card p.muted { color: #94a3b8; margin: 0 0 12px; }\n"
+            "\n"
+            "/* Interactive additions: sign-in state, create modal, feedback */\n"
+            ".muted { color: #94a3b8; }\n"
+            ".form-note { font-size: 0.85rem; color: #94a3b8; margin: 12px 0 0; }\n"
+            ".banner {\n"
+            "  padding: 14px 18px;\n"
+            "  border-radius: 16px;\n"
+            "  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(56, 189, 248, 0.14));\n"
+            "  border: 1px solid rgba(16, 185, 129, 0.35);\n"
+            "  color: #a7f3d0;\n"
+            "  font-weight: 600;\n"
+            "}\n"
+            ".btn-ghost {\n"
+            "  background: rgba(148, 163, 184, 0.18) !important;\n"
+            "  color: #e2e8f0 !important;\n"
+            "}\n"
+            ".sidebar-user {\n"
+            "  display: flex;\n"
+            "  align-items: center;\n"
+            "  gap: 12px;\n"
+            "  padding: 14px 16px;\n"
+            "  border-radius: 18px;\n"
+            "  background: rgba(30, 41, 59, 0.9);\n"
+            "  border: 1px solid rgba(148, 163, 184, 0.08);\n"
+            "}\n"
+            ".sidebar-user .avatar {\n"
+            "  width: 40px;\n"
+            "  height: 40px;\n"
+            "  border-radius: 50%;\n"
+            "  display: grid;\n"
+            "  place-items: center;\n"
+            "  background: linear-gradient(135deg, #38bdf8, #818cf8);\n"
+            "  color: #fff;\n"
+            "  font-weight: 800;\n"
+            "  flex-shrink: 0;\n"
+            "}\n"
+            ".sidebar-user strong { display: block; font-size: 0.9rem; margin-bottom: 6px; word-break: break-word; }\n"
+            ".sidebar-user .btn-ghost { padding: 8px 12px; border-radius: 10px; font-size: 0.85rem; }\n"
+            ".signed-in-msg { margin: 0; }\n"
+            ".dashboard-record-section { margin-top: 24px; }\n"
+            ".dashboard-record-section h2 { font-size: 1.1rem; margin: 0 0 12px; }\n"
+            ".modal-overlay {\n"
+            "  position: fixed;\n"
+            "  inset: 0;\n"
+            "  background: rgba(2, 6, 23, 0.7);\n"
+            "  display: grid;\n"
+            "  place-items: center;\n"
+            "  padding: 20px;\n"
+            "  z-index: 50;\n"
+            "}\n"
+            ".modal {\n"
+            "  width: min(520px, 100%);\n"
+            "  background: #0f172a;\n"
+            "  border: 1px solid rgba(148, 163, 184, 0.18);\n"
+            "  border-radius: 24px;\n"
+            "  padding: 28px;\n"
+            "}\n"
+            ".modal h2 { margin: 0 0 18px; }\n"
+            ".modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }\n"
         )
 
     def _infer_domain_context(self, project_name: str, requirements: str) -> dict[str, str]:
@@ -718,12 +957,18 @@ class FrontendGenerator(CodeGenerator):
         )
 
     def generate_vite_config_ts(self) -> str:
-        """Return a deterministic Vite config file using React plugin."""
+        """Return a deterministic Vite config file using React plugin.
+
+        `base: './'` makes the built bundle use relative asset paths so the
+        generated site can be previewed/served from a sub-path (e.g.
+        /projects/<slug>/preview) without breaking script/style references.
+        """
         return (
             "import { defineConfig } from 'vite';\n"
             "import react from '@vitejs/plugin-react';\n"
             "\n"
             "export default defineConfig({\n"
+            "  base: './',\n"
             "  plugins: [react()],\n"
             "});\n"
         )
@@ -762,6 +1007,14 @@ class FrontendGenerator(CodeGenerator):
                 content=self.generate_styles_css(project_slug, prompt),
             ),
             GeneratedFile(
+                path=f"{project_root}/package.json",
+                content=self.generate_package_json(project_slug, prompt),
+            ),
+            GeneratedFile(
+                path=f"{project_root}/index.html",
+                content=self.generate_index_html(project_slug, prompt),
+            ),
+            GeneratedFile(
                 path=f"{project_root}/tsconfig.json",
                 content=self.generate_tsconfig_json(),
             ),
@@ -783,13 +1036,43 @@ class FrontendGenerator(CodeGenerator):
         text = requirements.lower()
         text = re.sub(r"[^a-z0-9\s-]", " ", text)
         text = re.sub(
-            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|tasks|task|patients|doctors|billing|products|cart|orders)\b",
+            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|patients|doctors|billing|products|cart|orders)\b",
             " ",
             text,
         )
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
             return "generated_project"
-        slug = "_".join(text.split()[:4])
+
+        words = [self._normalize_slug_word(word) for word in text.split()]
+        unique_words: list[str] = []
+        seen: set[str] = set()
+        for word in words:
+            if not word or word in seen:
+                continue
+            seen.add(word)
+            unique_words.append(word)
+
+        slug = "_".join(unique_words[:4])
         return slug[:50].strip("_") or "generated_project"
+
+    def _normalize_slug_word(self, word: str) -> str:
+        normalized = word.lower()
+        singular_map = {
+            "tasks": "task",
+            "todos": "todo",
+            "users": "user",
+            "products": "product",
+            "orders": "order",
+            "carts": "cart",
+            "appointments": "appointment",
+            "categories": "category",
+            "patients": "patient",
+            "doctors": "doctor",
+            "notes": "note",
+            "posts": "post",
+            "messages": "message",
+            "invoices": "invoice",
+        }
+        return singular_map.get(normalized, normalized)
 

@@ -248,3 +248,50 @@ The generator test completed successfully.
 ### Result
 
 These issues were encountered during actual development and were fixed at the generator/source level. The debugging history is maintained to document the development process and validation of the generated frontend.
+
+
+## Bug: OAuth2PasswordBearer Not Defined in Generated Backend
+
+### Status
+Fixed
+
+### Where
+Generated Hospital Management System backend:
+
+`generated_projects/hospital_management/backend/routers/routes.py`
+
+### Error
+When starting the generated FastAPI backend with:
+
+`python -m uvicorn main:app --reload --port 8001`
+
+the application initially failed with:
+
+`NameError: name 'OAuth2PasswordBearer' is not defined`
+
+### Cause
+The generated `routes.py` used `OAuth2PasswordBearer`:
+
+`oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")`
+
+but the required FastAPI security import was missing.
+
+### Fix
+Added the required import:
+
+`from fastapi.security import OAuth2PasswordBearer`
+
+### Verification
+After the fix, the FastAPI backend started successfully and the application completed startup.
+
+The generated backend was accessible on:
+
+`http://127.0.0.1:8001`
+
+FastAPI documentation was also available through `/docs`.
+
+### Impact
+The bug prevented the generated FastAPI application from starting.
+
+### Result
+Fixed successfully. Existing project functionality was preserved.
