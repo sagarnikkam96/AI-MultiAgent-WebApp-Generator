@@ -1,13 +1,29 @@
 import React from 'react';
 
-const Login: React.FC = () => {
+interface LoginProps {
+  onLogin: (email: string) => void;
+}
+
+const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [submitted, setSubmitted] = React.useState(false);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Login submitted', { email, password });
+    if (!email.trim()) return;
+    onLogin(email.trim());
+    setSubmitted(true);
   };
+
+  if (submitted) {
+    return (
+      <div className="login-card">
+        <h2>Signed in!</h2>
+        <p className="muted">Successfully signed in as {email}. You can now create new records.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="login-card">
@@ -20,6 +36,7 @@ const Login: React.FC = () => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
             required
           />
         </label>
@@ -29,10 +46,12 @@ const Login: React.FC = () => {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
             required
           />
         </label>
         <button type="submit">Sign In</button>
+        <p className="form-note">Demo login — any email &amp; password works here.</p>
       </form>
     </div>
   );

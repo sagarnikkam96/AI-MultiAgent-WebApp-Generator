@@ -7,8 +7,13 @@ from urllib.request import Request, urlopen
 class OllamaClient:
     """Client for communicating with a local Ollama server."""
 
-    API_URL = "http://localhost:11434/api/generate"
-    MODEL = "qwen2.5-coder:3b"
+    DEFAULT_API_URL = "http://localhost:11434/api/generate"
+    DEFAULT_MODEL = "qwen2.5-coder:3b"
+
+    def __init__(self, model: str | None = None, api_url: str | None = None, timeout: int = 15) -> None:
+        self.MODEL = model or self.DEFAULT_MODEL
+        self.API_URL = api_url or self.DEFAULT_API_URL
+        self.timeout = timeout
 
     def generate(self, prompt: str) -> str:
         """Generate text from the local Ollama server using the configured model.
@@ -36,7 +41,7 @@ class OllamaClient:
         )
 
         try:
-            with urlopen(request) as response:
+            with urlopen(request, timeout=self.timeout) as response:
                 raw_data = response.read().decode("utf-8")
         except HTTPError as exc:
             message = exc.read().decode("utf-8", errors="ignore")
@@ -48,7 +53,7 @@ class OllamaClient:
                 f"Failed to connect to Ollama server at {self.API_URL}: {exc.reason}"
             ) from exc
         except Exception as exc:
-            raise RuntimeError("Unexpected error while communicating with Ollama") from exc
+            raise RuntimeError(f"Ollama request timed out or failed: {exc}") from exc
 
         try:
             data: Any = json.loads(raw_data)

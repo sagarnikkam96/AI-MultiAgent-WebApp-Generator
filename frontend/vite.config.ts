@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
         // Forward API calls to the FastAPI backend so the frontend is
         // same-origin (no CORS / port-mismatch issues).
         '/analyze': proxyTarget,
+        '/api': proxyTarget,
         '/health': proxyTarget,
         '/projects': proxyTarget,
       },

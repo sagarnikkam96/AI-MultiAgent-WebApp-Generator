@@ -19,6 +19,12 @@ Thumbs.db
  
 # Frontend build output
 frontend/dist/
+frontend/.generator-validation-site/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 
 # Generated project frontend build outputs
 generated_projects/**/frontend/dist/
@@ -33,6 +39,7 @@ vite.config.d.ts
 # Backend exports and generated output (not repo source)
 backend/exports/
 backend/generated_projects/
+backend/e2e_output/
 
 # Temporary inspection / validation / regeneration scripts
 backend/build_task_management.py

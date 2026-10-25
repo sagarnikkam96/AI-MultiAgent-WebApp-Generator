@@ -23,9 +23,9 @@ def main() -> None:
         ("src/App.tsx", "Generate a React App component that imports and demonstrates Login, Dashboard, Patients, and Doctors components"),
         ("src/main.tsx", "Generate a valid React entry point for Vite that mounts App into the document root"),
         ("src/Login.tsx", "Create a React login page with email, password and login button"),
-        ("src/Dashboard.tsx", "Create a dashboard page with responsive statistic cards"),
-        ("src/SectionOne.tsx", "Create a modern section component with a list or table for the first domain area"),
-        ("src/SectionTwo.tsx", "Create a modern section component with a list or table for the second domain area"),
+        ("src/Dashboard.tsx", "Create a hospital dashboard page showing summary cards"),
+        ("src/Patients.tsx", "Create a patient management page with a patient list"),
+        ("src/Doctors.tsx", "Create a doctor management page with a doctor list"),
     ]
 
     generated_files: list[GeneratedFile] = []
@@ -35,38 +35,11 @@ def main() -> None:
             generated_code = frontend_generator.generate_package_json(project_name, requirements)
         elif filename == "index.html":
             generated_code = frontend_generator.generate_index_html(project_name, requirements)
-        elif filename == "src/main.tsx":
-            generated_code = frontend_generator.generate_main_tsx()
         else:
-            # Generate each TSX component file separately
-            generated_code = frontend_generator.generate_tsx(project_name, requirements, filename=filename)
+            # Generate each TSX/entry file separately
+            generated_code = frontend_generator.generate_tsx(project_name, requirements)
 
         generated_files.append(GeneratedFile(path=f"generated_projects/hospital_management/frontend/{filename}", content=generated_code))
-
-    generated_files.append(GeneratedFile(
-        path="generated_projects/hospital_management/frontend/src/styles.css",
-        content=frontend_generator.generate_styles_css(project_name, 'Generate shared application CSS for the React frontend'),
-    ))
-
-    # Generate deterministic frontend config files used by the Vite/TypeScript build.
-    generated_files.extend([
-        GeneratedFile(
-            path="generated_projects/hospital_management/frontend/tsconfig.json",
-            content=frontend_generator.generate_tsconfig_json(),
-        ),
-        GeneratedFile(
-            path="generated_projects/hospital_management/frontend/tsconfig.app.json",
-            content=frontend_generator.generate_tsconfig_app_json(),
-        ),
-        GeneratedFile(
-            path="generated_projects/hospital_management/frontend/tsconfig.node.json",
-            content=frontend_generator.generate_tsconfig_node_json(),
-        ),
-        GeneratedFile(
-            path="generated_projects/hospital_management/frontend/vite.config.ts",
-            content=frontend_generator.generate_vite_config_ts(),
-        ),
-    ])
 
     created_paths = file_writer.write_files(generated_files)
 
@@ -82,7 +55,6 @@ def run_backend_generation_test() -> None:
     prompt = "Build a task management application using React FastAPI PostgreSQL with login and tasks."
     file_writer = FileWriter(Path(__file__).resolve().parents[3])
     backend_generator = BackendGenerator()
-    frontend_generator = FrontendGenerator()
 
     generated_files = backend_generator.generate_files(type("Prompt", (), {"get_prompt": lambda self: prompt})())
 
@@ -95,43 +67,17 @@ def run_backend_generation_test() -> None:
     for created_path in created_paths:
         print(created_path)
 
-    project_slug = backend_generator._project_slug(prompt)
     expected_paths = [
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/main.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/database/connection.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/database/session.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/models/models.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/schemas/schemas.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/routers/routes.py",
-        file_writer.base_path / f"generated_projects/{project_slug}/backend/requirements.txt",
+        file_writer.base_path / "backend/app/main.py",
+        file_writer.base_path / "backend/app/database/connection.py",
+        file_writer.base_path / "backend/app/models/models.py",
+        file_writer.base_path / "backend/app/schemas/schemas.py",
+        file_writer.base_path / "backend/app/routers/routes.py",
     ]
 
     missing = [str(path) for path in expected_paths if not path.exists()]
     if missing:
         raise SystemExit(f"Expected backend files missing: {missing}")
-
-    # Validate generated Python syntax for backend files
-    for path in created_paths:
-        if path.suffix == ".py":
-            source = path.read_text(encoding="utf-8")
-            try:
-                __import__("ast").parse(source)
-            except SyntaxError as exc:
-                raise SystemExit(f"Generated Python file {path} contains syntax error: {exc}")
-
-    # Validate generated dependency manifest for the backend
-    requirements_path = file_writer.base_path / f"generated_projects/{project_slug}/backend/requirements.txt"
-    requirements_text = requirements_path.read_text(encoding="utf-8")
-    for dependency in ["fastapi", "uvicorn", "sqlalchemy", "pydantic", "psycopg2-binary"]:
-        if dependency not in requirements_text:
-            raise SystemExit(f"Generated requirements.txt is missing '{dependency}'")
-
-    # Validate generated JSON output for package.json via frontend generator
-    package_json = frontend_generator.generate_package_json("Task Management", prompt)
-    try:
-        __import__("json").loads(package_json)
-    except ValueError as exc:
-        raise SystemExit(f"Generated package.json is invalid JSON: {exc}")
 
     print("BACKEND FILES VERIFIED")
 

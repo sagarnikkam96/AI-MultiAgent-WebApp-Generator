@@ -1,24 +1,26 @@
 from __future__ import annotations
 
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from .code_generator import CodeGenerator, PromptProvider
 from .code_schema import GeneratedFile
+from .project_slug import project_slug
 
 
 class DatabaseGenerator(CodeGenerator):
     """Generates database code artifacts for Version 2."""
 
-    def generate_files(self, prompt_provider: PromptProvider) -> list[GeneratedFile]:
+    def generate_files(self, prompt_provider: PromptProvider, project_name: str = "", requirements: Any = None, language: str = "en") -> list[GeneratedFile]:
         """Create database files from the given prompt provider."""
-        prompt = prompt_provider.get_prompt()
-        return self._build_database_files(prompt)
+        raw_prompt = getattr(prompt_provider, "prompt", None)
+        prompt = raw_prompt.strip() if isinstance(raw_prompt, str) and raw_prompt.strip() else prompt_provider.get_prompt()
+        return self._build_database_files(prompt, project_name)
 
-    def _build_database_files(self, prompt: str) -> list[GeneratedFile]:
+    def _build_database_files(self, prompt: str, project_name: str = "") -> list[GeneratedFile]:
         """Construct the initial database file list."""
-        project_slug = self._project_slug(prompt)
-        project_root = f"generated_projects/{project_slug}/backend"
+        slug = project_slug(project_name.strip()) if project_name.strip() else self._project_slug(prompt)
+        project_root = f"generated_projects/{slug}/backend"
         return [
             GeneratedFile(
                 path=f"{project_root}/database/base.py",
@@ -27,6 +29,8 @@ class DatabaseGenerator(CodeGenerator):
         ]
 
     def _project_slug(self, requirements: str) -> str:
+        if not requirements.strip():
+            return "generated_project"
         text = requirements.lower()
         text = re.sub(r"[^a-z0-9\s-]", " ", text)
         text = re.sub(

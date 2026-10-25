@@ -1,0 +1,356 @@
+{
+  "domains": [
+    {
+      "id": "ecommerce",
+      "name": "E-Commerce & Online Store",
+      "keywords": [
+        "store",
+        "shop",
+        "ecommerce",
+        "cart",
+        "checkout",
+        "products",
+        "order"
+      ],
+      "default_modules": [
+        "Product Catalog",
+        "Shopping Cart",
+        "Order Checkout",
+        "Customer Reviews",
+        "Inventory Management",
+        "User Profile"
+      ],
+      "theme": {
+        "primary": "#4f46e5",
+        "secondary": "#06b6d4",
+        "accent": "#f59e0b"
+      },
+      "sample_records": [
+        {
+          "id": 1,
+          "name": "Wireless Noise-Canceling Headphones",
+          "category": "Electronics",
+          "price": 199.99,
+          "status": "In Stock",
+          "rating": 4.8
+        },
+        {
+          "id": 2,
+          "name": "Ultra-Wide Curved Gaming Monitor",
+          "category": "Electronics",
+          "price": 449.0,
+          "status": "In Stock",
+          "rating": 4.9
+        },
+        {
+          "id": 3,
+          "name": "Ergonomic Mechanical Keyboard",
+          "category": "Accessories",
+          "price": 129.5,
+          "status": "Low Stock",
+          "rating": 4.7
+        },
+        {
+          "id": 4,
+          "name": "Premium Leather Travel Backpack",
+          "category": "Apparel",
+          "price": 89.0,
+          "status": "In Stock",
+          "rating": 4.6
+        }
+      ],
+      "entity_name": "Product",
+      "tables": [
+        "users",
+        "products",
+        "orders",
+        "order_items",
+        "categories",
+        "reviews"
+      ]
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare & Hospital Management",
+      "keywords": [
+        "hospital",
+        "doctor",
+        "patient",
+        "clinic",
+        "medical",
+        "appointment",
+        "healthcare",
+        "prescription"
+      ],
+      "default_modules": [
+        "Patient Records",
+        "Doctor Directory",
+        "Appointment Scheduling",
+        "Prescription Tracker",
+        "Billing & Invoices",
+        "Emergency Dispatch"
+      ],
+      "theme": {
+        "primary": "#059669",
+        "secondary": "#0284c7",
+        "accent": "#10b981"
+      },
+      "sample_records": [
+        {
+          "id": 1,
+          "name": "Dr. Sarah Jenkins (Cardiology)",
+          "category": "Physician",
+          "role": "Senior Cardiologist",
+          "status": "Available",
+          "rating": 4.9
+        },
+        {
+          "id": 2,
+          "name": "Dr. Michael Chen (Neurology)",
+          "category": "Physician",
+          "role": "Chief Neurologist",
+          "status": "In Surgery",
+          "rating": 4.8
+        },
+        {
+          "id": 3,
+          "name": "Patient Emily Rodriguez",
+          "category": "In-Patient",
+          "role": "Room 304B",
+          "status": "Stable",
+          "rating": 5.0
+        },
+        {
+          "id": 4,
+          "name": "General Checkup & Diagnostics",
+          "category": "Appointment",
+          "role": "Clinic Hall A",
+          "status": "Scheduled",
+          "rating": 4.7
+        }
+      ],
+      "entity_name": "Appointment / Record",
+      "tables": [
+        "users",
+        "doctors",
+        "patients",
+        "appointments",
+        "medical_records",
+        "prescriptions"
+      ]
+    },
+    {
+      "id": "task_management",
+      "name": "Task & Project Management SaaS",
+      "keywords": [
+        "task",
+        "project",
+        "kanban",
+        "scrum",
+        "todo",
+        "sprint",
+        "team",
+        "management"
+      ],
+      "default_modules": [
+        "Kanban Board",
+        "Sprint Planner",
+        "Team Collaboration",
+        "Time Tracking",
+        "Analytics & Burndown",
+        "Activity Feed"
+      ],
+      "theme": {
+        "primary": "#6366f1",
+        "secondary": "#8b5cf6",
+        "accent": "#ec4899"
+      },
+      "sample_records": [
+        {
+          "id": 1,
+          "name": "Implement Multi-Agent Workflow Engine",
+          "category": "Core Engineering",
+          "role": "High Priority",
+          "status": "In Progress",
+          "rating": 4.9
+        },
+        {
+          "id": 2,
+          "name": "Design Dark Mode UI Component Library",
+          "category": "Design System",
+          "role": "UI/UX",
+          "status": "Completed",
+          "rating": 5.0
+        },
+        {
+          "id": 3,
+          "name": "Setup PostgreSQL Database Connection Pooling",
+          "category": "DevOps",
+          "role": "Backend",
+          "status": "Review",
+          "rating": 4.7
+        },
+        {
+          "id": 4,
+          "name": "Add Speech Recognition Voice Input Controls",
+          "category": "Multimodal AI",
+          "role": "Feature",
+          "status": "In Progress",
+          "rating": 4.8
+        }
+      ],
+      "entity_name": "Task",
+      "tables": [
+        "users",
+        "workspaces",
+        "projects",
+        "tasks",
+        "task_comments",
+        "time_logs"
+      ]
+    },
+    {
+      "id": "education",
+      "name": "Learning Management System (LMS)",
+      "keywords": [
+        "school",
+        "college",
+        "course",
+        "lms",
+        "student",
+        "teacher",
+        "quiz",
+        "education",
+        "learning"
+      ],
+      "default_modules": [
+        "Course Catalog",
+        "Video Lectures",
+        "Quiz & Exam Engine",
+        "Gradebook",
+        "Discussion Forum",
+        "Certificate Generator"
+      ],
+      "theme": {
+        "primary": "#d97706",
+        "secondary": "#2563eb",
+        "accent": "#10b981"
+      },
+      "sample_records": [
+        {
+          "id": 1,
+          "name": "Full-Stack AI Application Development",
+          "category": "Computer Science",
+          "role": "Advanced",
+          "status": "Enrolled (450)",
+          "rating": 4.9
+        },
+        {
+          "id": 2,
+          "name": "Modern React & TypeScript Architecture",
+          "category": "Web Engineering",
+          "role": "Intermediate",
+          "status": "Enrolled (820)",
+          "rating": 4.8
+        },
+        {
+          "id": 3,
+          "name": "Python & FastAPI Production Microservices",
+          "category": "Backend",
+          "role": "Advanced",
+          "status": "Enrolled (610)",
+          "rating": 4.9
+        },
+        {
+          "id": 4,
+          "name": "Database Design & SQL Performance Tuning",
+          "category": "Data Engineering",
+          "role": "Beginner",
+          "status": "Enrolled (390)",
+          "rating": 4.7
+        }
+      ],
+      "entity_name": "Course",
+      "tables": [
+        "users",
+        "courses",
+        "lessons",
+        "enrollments",
+        "quizzes",
+        "submissions",
+        "certificates"
+      ]
+    },
+    {
+      "id": "fintech",
+      "name": "FinTech & Crypto Banking Portal",
+      "keywords": [
+        "bank",
+        "finance",
+        "crypto",
+        "wallet",
+        "money",
+        "transaction",
+        "payment",
+        "fintech",
+        "trading"
+      ],
+      "default_modules": [
+        "Account Balances",
+        "Transfer Money",
+        "Crypto Exchange",
+        "Transaction History",
+        "Security & 2FA",
+        "Budget Analytics"
+      ],
+      "theme": {
+        "primary": "#10b981",
+        "secondary": "#3b82f6",
+        "accent": "#f59e0b"
+      },
+      "sample_records": [
+        {
+          "id": 1,
+          "name": "Global High-Yield Checking Account",
+          "category": "Checking",
+          "role": "USD ,580.50",
+          "status": "Active",
+          "rating": 5.0
+        },
+        {
+          "id": 2,
+          "name": "Automated Investment Portfolio (Index 500)",
+          "category": "Investment",
+          "role": "USD ,120.00",
+          "status": "+14.2% YoY",
+          "rating": 4.9
+        },
+        {
+          "id": 3,
+          "name": "Ethereum Staking Vault",
+          "category": "Crypto",
+          "role": "12.4 ETH",
+          "status": "Yield 4.5%",
+          "rating": 4.8
+        },
+        {
+          "id": 4,
+          "name": "Instant Wire Transfer (Invoice #4829)",
+          "category": "Wire Transfer",
+          "role": "USD ,250.00",
+          "status": "Settled",
+          "rating": 5.0
+        }
+      ],
+      "entity_name": "Account / Asset",
+      "tables": [
+        "users",
+        "accounts",
+        "wallets",
+        "transactions",
+        "cards",
+        "budgets"
+      ]
+    }
+  ]
+}

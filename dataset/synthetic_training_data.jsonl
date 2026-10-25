@@ -1,0 +1,5 @@
+{"prompt": "Build a hospital management app with patient records and doctor appointments", "domain": "healthcare", "stack": {"frontend": "React", "backend": "FastAPI", "db": "PostgreSQL"}}
+{"prompt": "Create an e-commerce platform for selling tech gadgets with cart and checkout", "domain": "ecommerce", "stack": {"frontend": "React", "backend": "FastAPI", "db": "PostgreSQL"}}
+{"prompt": "Develop a real-time collaborative task board with sprints and analytics", "domain": "task_management", "stack": {"frontend": "React", "backend": "FastAPI", "db": "PostgreSQL"}}
+{"prompt": "Build a crypto banking portal with wallet transactions and 2FA authentication", "domain": "fintech", "stack": {"frontend": "React", "backend": "FastAPI", "db": "PostgreSQL"}}
+{"prompt": "Create an online course platform with video player and quiz certification", "domain": "education", "stack": {"frontend": "React", "backend": "FastAPI", "db": "PostgreSQL"}}

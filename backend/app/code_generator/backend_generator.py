@@ -2,78 +2,136 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from .code_generator import CodeGenerator, PromptProvider
 from .code_schema import GeneratedFile
+from .project_slug import project_slug
+from .website_spec import derive_website_spec
 
 
 class BackendGenerator(CodeGenerator):
     """Generates backend code artifacts for Version 2."""
 
-    def generate_files(self, prompt_provider: PromptProvider) -> list[GeneratedFile]:
+    def generate_files(
+        self,
+        prompt_provider: PromptProvider,
+        project_name: str = "",
+        requirements: Any = None,
+        language: str = "en",
+    ) -> list[GeneratedFile]:
         """Create backend files from the given prompt provider."""
-        prompt = prompt_provider.get_prompt()
+        raw_prompt = getattr(prompt_provider, "prompt", None)
+        prompt = raw_prompt.strip() if isinstance(raw_prompt, str) and raw_prompt.strip() else prompt_provider.get_prompt()
         generated_files = self._build_backend_files(prompt)
+        slug = project_slug(project_name.strip() or prompt)
+        project_root = f"generated_projects/{slug}"
+        generated_files = [
+            GeneratedFile(path=f"{project_root}/{generated_file.path}", content=generated_file.content)
+            for generated_file in generated_files
+        ]
         self._validate_generated_files(generated_files)
         return generated_files
 
     def _build_backend_files(self, prompt: str) -> list[GeneratedFile]:
         """Construct the backend file list based on natural language requirements."""
         requirements = prompt.strip()
-        project_slug = self._project_slug(requirements)
-        project_root = f"generated_projects/{project_slug}/backend"
         has_postgres = self._requires_postgres(requirements)
         has_auth = self._requires_auth(requirements)
         entities = self._extract_entities(requirements)
+        website_spec = derive_website_spec(requirements)
+        if website_spec.get("key") == "generic":
+            module_labels = website_spec.get("module_labels", {})
+        else:
+            module_labels = {module: module for module in website_spec.get("components", [])}
+        special_entities = {
+            "Cart": "CartItem", "Menu": "MenuItem", "Categories": "Category",
+            "Companies": "Company", "Policies": "Policy", "Faculty": "Faculty",
+        }
+        for component, label in module_labels.items():
+            words = re.findall(r"[A-Za-z0-9]+", label)
+            if not words:
+                continue
+            entity = special_entities.get(component)
+            if entity is None:
+                entity = "".join(word.title() for word in words)
+                if entity.endswith("ies"):
+                    entity = f"{entity[:-3]}y"
+                elif entity.endswith("s") and not entity.endswith(("ss", "us", "is")):
+                    entity = entity[:-1]
+            if entity not in entities:
+                entities.append(entity)
 
         if has_auth and "User" not in entities:
             entities.insert(0, "User")
 
         requires_database = has_postgres or bool(entities)
+
         generated_files: list[GeneratedFile] = []
+
+        generated_files.append(
+            GeneratedFile(
+                path="backend/app/__init__.py",
+                content=self._package_init_content(),
+            )
+        )
+        generated_files.append(
+            GeneratedFile(
+                path="backend/requirements.txt",
+                content=self._requirements_content(has_postgres),
+            )
+        )
+        generated_files.append(
+            GeneratedFile(
+                path="backend/README.md",
+                content=(
+                    "# Generated backend\n\n"
+                    "From this directory, install dependencies and start the API:\n\n"
+                    "1. `python -m pip install -r requirements.txt`\n"
+                    "2. `python -m uvicorn app.main:app --reload --port 8001`\n\n"
+                    "The generated frontend reads database counts from this API. "
+                    "Its default API address is `http://127.0.0.1:8001`; set "
+                    "`VITE_API_BASE_URL` before building the frontend if you use a different host or port.\n"
+                ),
+            )
+        )
 
         if requires_database:
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/database/connection.py",
+                    path="backend/app/database/connection.py",
                     content=self._database_connection_content(has_postgres),
                 )
             )
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/database/session.py",
-                    content=self._database_session_content(has_postgres),
-                )
-            )
-            generated_files.append(
-                GeneratedFile(
-                    path=f"{project_root}/database/__init__.py",
+                    path="backend/app/database/__init__.py",
                     content=self._package_init_content(),
                 )
             )
+
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/models/models.py",
+                    path="backend/app/models/models.py",
                     content=self._models_content(entities, has_auth),
                 )
             )
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/models/__init__.py",
+                    path="backend/app/models/__init__.py",
                     content=self._package_init_content(),
                 )
             )
 
         generated_files.append(
             GeneratedFile(
-                path=f"{project_root}/schemas/schemas.py",
+                path="backend/app/schemas/schemas.py",
                 content=self._schemas_content(entities, has_auth),
             )
         )
         generated_files.append(
             GeneratedFile(
-                path=f"{project_root}/schemas/__init__.py",
+                path="backend/app/schemas/__init__.py",
                 content=self._package_init_content(),
             )
         )
@@ -81,26 +139,26 @@ class BackendGenerator(CodeGenerator):
         if requires_database:
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/services/services.py",
+                    path="backend/app/services/services.py",
                     content=self._services_content(entities, has_auth),
                 )
             )
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/services/__init__.py",
+                    path="backend/app/services/__init__.py",
                     content=self._package_init_content(),
                 )
             )
 
         generated_files.append(
             GeneratedFile(
-                path=f"{project_root}/routers/routes.py",
+                path="backend/app/routers/routes.py",
                 content=self._routers_content(entities, has_auth, requires_database),
             )
         )
         generated_files.append(
             GeneratedFile(
-                path=f"{project_root}/routers/__init__.py",
+                path="backend/app/routers/__init__.py",
                 content=self._package_init_content(),
             )
         )
@@ -108,95 +166,25 @@ class BackendGenerator(CodeGenerator):
         if has_auth:
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/auth/jwt.py",
+                    path="backend/app/auth/jwt.py",
                     content=self._auth_jwt_content(),
                 )
             )
             generated_files.append(
                 GeneratedFile(
-                    path=f"{project_root}/auth/__init__.py",
+                    path="backend/app/auth/__init__.py",
                     content=self._package_init_content(),
                 )
             )
 
         generated_files.append(
             GeneratedFile(
-                path=f"{project_root}/main.py",
-                content=self._main_content(requires_database),
-            )
-        )
-
-        generated_files.append(
-            GeneratedFile(
-                path=f"{project_root}/requirements.txt",
-                content=self._requirements_content(has_postgres),
+                path="backend/app/main.py",
+                content=self._main_content(has_auth, requires_database),
             )
         )
 
         return generated_files
-
-    def _project_slug(self, requirements: str) -> str:
-        text = requirements.lower()
-        text = re.sub(r"[^a-z0-9\s-]", " ", text)
-        text = re.sub(
-            r"\b(build|create|generate|develop|design|application|app|system|using|with|and|or|for|the|a|an|react|fastapi|postgres|postgresql|login|signup|register|authentication|auth|jwt|token|users|user|patients|doctors|billing|products|cart|orders)\b",
-            " ",
-            text,
-        )
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            return "generated_project"
-
-        words = [self._normalize_slug_word(word) for word in text.split()]
-        unique_words: list[str] = []
-        seen: set[str] = set()
-        for word in words:
-            if not word or word in seen:
-                continue
-            seen.add(word)
-            unique_words.append(word)
-
-        slug = "_".join(unique_words[:4])
-        return slug[:50].strip("_") or "generated_project"
-
-    def _normalize_slug_word(self, word: str) -> str:
-        normalized = word.lower()
-        singular_map = {
-            "tasks": "task",
-            "todos": "todo",
-            "users": "user",
-            "products": "product",
-            "orders": "order",
-            "carts": "cart",
-            "appointments": "appointment",
-            "categories": "category",
-            "patients": "patient",
-            "doctors": "doctor",
-            "notes": "note",
-            "posts": "post",
-            "messages": "message",
-            "invoices": "invoice",
-        }
-        return singular_map.get(normalized, normalized)
-
-    def _table_name(self, entity: str) -> str:
-        lower_entity = entity.lower()
-        if lower_entity.endswith("y") and not lower_entity.endswith("ay") and not lower_entity.endswith("ey"):
-            return lower_entity[:-1] + "ies"
-        if lower_entity.endswith("s"):
-            return lower_entity
-        return lower_entity + "s"
-
-    def _pluralize(self, entity: str) -> str:
-        lower_entity = entity.lower()
-        if lower_entity.endswith("y") and not lower_entity.endswith("ay") and not lower_entity.endswith("ey"):
-            return lower_entity[:-1] + "ies"
-        if lower_entity.endswith("s"):
-            return lower_entity + "es"
-        return lower_entity + "s"
-
-    def _titleize(self, value: str) -> str:
-        return "".join(word.capitalize() for word in re.split(r"[_\s-]+", value))
 
     def _requires_postgres(self, requirements: str) -> bool:
         text = requirements.lower()
@@ -218,18 +206,10 @@ class BackendGenerator(CodeGenerator):
             "order": "Order",
             "orders": "Order",
             "cart": "CartItem",
-            "carts": "CartItem",
             "user": "User",
             "users": "User",
             "customer": "Customer",
             "customers": "Customer",
-            "doctor": "Doctor",
-            "doctors": "Doctor",
-            "patient": "Patient",
-            "patients": "Patient",
-            "billing": "Billing",
-            "invoice": "Invoice",
-            "invoices": "Invoice",
             "ticket": "Ticket",
             "tickets": "Ticket",
             "message": "Message",
@@ -244,45 +224,6 @@ class BackendGenerator(CodeGenerator):
             "comments": "Comment",
             "note": "Note",
             "notes": "Note",
-            "appointment": "Appointment",
-            "appointments": "Appointment",
-            "category": "Category",
-            "categories": "Category",
-        }
-
-        stopwords = {
-            "build",
-            "create",
-            "generate",
-            "develop",
-            "design",
-            "application",
-            "app",
-            "system",
-            "using",
-            "with",
-            "and",
-            "or",
-            "for",
-            "the",
-            "a",
-            "an",
-            "react",
-            "fastapi",
-            "postgres",
-            "postgresql",
-            "login",
-            "signup",
-            "register",
-            "authentication",
-            "auth",
-            "jwt",
-            "token",
-            "dashboard",
-            "backend",
-            "frontend",
-            "project",
-            "projects",
         }
 
         entities: list[str] = []
@@ -290,65 +231,17 @@ class BackendGenerator(CodeGenerator):
             if re.search(rf"\b{re.escape(keyword)}\b", text) and entity_name not in entities:
                 entities.append(entity_name)
 
-        if not entities:
-            candidates = re.findall(r"\b[a-zA-Z]{4,}\b", text)
-            for candidate in candidates:
-                if candidate in stopwords or candidate.isnumeric():
-                    continue
-                if candidate in entity_map:
-                    continue
-                camelized = self._titleize(candidate)
-                if camelized not in entities:
-                    entities.append(camelized)
-
         return entities
 
     def _database_connection_content(self, use_postgres: bool) -> str:
         if use_postgres:
             return (
-                "import os\n"
                 "from sqlalchemy import create_engine\n"
                 "from sqlalchemy.orm import sessionmaker\n"
                 "\n"
-                "DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/app_db')\n"
+                "DATABASE_URL = 'postgresql://user:password@localhost:5432/app_db'\n"
                 "engine = create_engine(DATABASE_URL, future=True)\n"
-                "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)\n"
-                "\n"
-                "def get_db():\n"
-                "    db = SessionLocal()\n"
-                "    try:\n"
-                "        yield db\n"
-                "    finally:\n"
-                "        db.close()\n"
-            )
-
-        return (
-            "import os\n"
-            "from sqlalchemy import create_engine\n"
-            "from sqlalchemy.orm import sessionmaker\n"
-            "\n"
-            "DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./app.db')\n"
-            "engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False}, future=True)\n"
-            "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)\n"
-            "\n"
-            "def get_db():\n"
-            "    db = SessionLocal()\n"
-            "    try:\n"
-            "        yield db\n"
-            "    finally:\n"
-            "        db.close()\n"
-        )
-
-    def _database_session_content(self, use_postgres: bool) -> str:
-        if use_postgres:
-            return (
-                "import os\n"
-                "from sqlalchemy import create_engine\n"
-                "from sqlalchemy.orm import sessionmaker\n"
-                "\n"
-                "DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/app_db')\n"
-                "engine = create_engine(DATABASE_URL, future=True)\n"
-                "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)\n"
+                "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)\n"
                 "\n"
                 "def get_db():\n"
                 "    db = SessionLocal()\n"
@@ -361,11 +254,10 @@ class BackendGenerator(CodeGenerator):
         return (
             "from sqlalchemy import create_engine\n"
             "from sqlalchemy.orm import sessionmaker\n"
-            "import os\n"
             "\n"
-            "DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./app.db')\n"
-            "engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False}, future=True)\n"
-            "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)\n"
+            "DATABASE_URL = 'sqlite:///./app.db'\n"
+            "engine = create_engine(DATABASE_URL, connect_args={'check_same_thread': False})\n"
+            "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)\n"
             "\n"
             "def get_db():\n"
             "    db = SessionLocal()\n"
@@ -378,9 +270,9 @@ class BackendGenerator(CodeGenerator):
     def _models_content(self, entities: list[str], has_auth: bool) -> str:
         has_user = "User" in entities
         lines = [
-            "from datetime import datetime\n",
-            "from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text\n",
+            "from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Boolean, Float\n",
             "from sqlalchemy.orm import declarative_base, relationship\n",
+            "from datetime import datetime\n",
             "\n",
             "Base = declarative_base()\n",
             "\n",
@@ -396,46 +288,107 @@ class BackendGenerator(CodeGenerator):
                     "    hashed_password = Column(String, nullable=False)\n",
                     "    is_active = Column(Boolean, default=True, nullable=False)\n",
                     "    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
-                    "    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
                     "\n",
                 ]
             )
 
-        for entity in entities:
-            if entity == "User":
-                continue
-
-            table_name = self._table_name(entity)
+        if "Task" in entities:
             lines.extend(
                 [
-                    f"class {entity}(Base):\n",
-                    f"    __tablename__ = '{table_name}'\n",
+                    "class Task(Base):\n",
+                    "    __tablename__ = 'tasks'\n",
                     "    id = Column(Integer, primary_key=True, index=True)\n",
-                    "    name = Column(String, nullable=False)\n",
+                    "    title = Column(String, nullable=False)\n",
                     "    description = Column(Text, nullable=True)\n",
-                    "    is_active = Column(Boolean, default=True, nullable=False)\n",
-                    "    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
-                    "    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
+                    "    completed = Column(Boolean, default=False, nullable=False)\n",
+                    "    owner_id = Column(Integer, ForeignKey('users.id'), nullable=False)\n",
+                    "    owner = relationship('User', back_populates='tasks')\n",
+                    "\n",
                 ]
             )
 
-            if has_auth:
-                lines.extend(
-                    [
-                        "    created_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)\n",
-                        "    created_by = relationship('User')\n",
-                    ]
-                )
+        if "Product" in entities:
+            lines.extend(
+                [
+                    "class Product(Base):\n",
+                    "    __tablename__ = 'products'\n",
+                    "    id = Column(Integer, primary_key=True, index=True)\n",
+                    "    name = Column(String, nullable=False)\n",
+                    "    description = Column(Text, nullable=True)\n",
+                    "    price = Column(Float, nullable=False, default=0.0)\n",
+                    "    available = Column(Boolean, default=True, nullable=False)\n",
+                    "\n",
+                ]
+            )
 
+        if "Order" in entities:
+            lines.extend(
+                [
+                    "class Order(Base):\n",
+                    "    __tablename__ = 'orders'\n",
+                    "    id = Column(Integer, primary_key=True, index=True)\n",
+                    "    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)\n",
+                    "    status = Column(String, default='pending', nullable=False)\n",
+                    "    total_amount = Column(Float, nullable=False, default=0.0)\n",
+                    "    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
+                    "    user = relationship('User')\n",
+                    "\n",
+                ]
+            )
+
+        if "CartItem" in entities:
+            lines.extend(
+                [
+                    "class CartItem(Base):\n",
+                    "    __tablename__ = 'cart_items'\n",
+                    "    id = Column(Integer, primary_key=True, index=True)\n",
+                    "    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)\n",
+                    "    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)\n",
+                    "    quantity = Column(Integer, nullable=False, default=1)\n",
+                    "    added_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
+                    "\n",
+                ]
+            )
+
+        if "Todo" in entities:
+            lines.extend(
+                [
+                    "class Todo(Base):\n",
+                    "    __tablename__ = 'todos'\n",
+                    "    id = Column(Integer, primary_key=True, index=True)\n",
+                    "    title = Column(String, nullable=False)\n",
+                    "    completed = Column(Boolean, default=False, nullable=False)\n",
+                    "    owner_id = Column(Integer, ForeignKey('users.id'), nullable=False)\n",
+                    "    owner = relationship('User')\n",
+                    "\n",
+                ]
+            )
+
+        handled_entities = {"User", "Task", "Product", "Order", "CartItem", "Todo"}
+        for entity in entities:
+            if entity in handled_entities:
+                continue
+            table_name = self._plural_name(self._snake_case(entity))
+            lines.extend([
+                f"class {entity}(Base):\n",
+                f"    __tablename__ = {table_name!r}\n",
+                "    id = Column(Integer, primary_key=True, index=True)\n",
+                "    name = Column(String, nullable=False)\n",
+                "    description = Column(Text, nullable=True)\n",
+                "    category = Column(String, nullable=False, default='General')\n",
+                "    status = Column(String, nullable=False, default='Active')\n",
+                "    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)\n",
+            ])
+            if has_auth:
+                lines.append("    created_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)\n")
             lines.append("\n")
 
         return "".join(lines)
 
     def _schemas_content(self, entities: list[str], has_auth: bool) -> str:
         lines = [
-            "from datetime import datetime\n",
-            "from typing import Optional\n",
             "from pydantic import BaseModel\n",
+            "from typing import Optional\n",
             "\n",
         ]
 
@@ -450,8 +403,6 @@ class BackendGenerator(CodeGenerator):
                     "    id: int\n",
                     "    email: str\n",
                     "    is_active: bool\n",
-                    "    created_at: datetime\n",
-                    "    updated_at: datetime\n",
                     "\n",
                     "    class Config:\n",
                     "        orm_mode = True\n",
@@ -467,31 +418,18 @@ class BackendGenerator(CodeGenerator):
                 ]
             )
 
-        for entity in entities:
-            if entity == "User":
-                continue
-
-            entity_create = f"{entity}Create"
-            entity_read = f"{entity}Read"
+        if "Task" in entities:
             lines.extend(
                 [
-                    f"class {entity_create}(BaseModel):\n",
-                    "    name: str\n",
+                    "class TaskCreate(BaseModel):\n",
+                    "    title: str\n",
                     "    description: Optional[str] = None\n",
                     "\n",
-                    f"class {entity_read}(BaseModel):\n",
+                    "class TaskRead(BaseModel):\n",
                     "    id: int\n",
-                    "    name: str\n",
+                    "    title: str\n",
                     "    description: Optional[str] = None\n",
-                    "    is_active: bool\n",
-                    "    created_at: datetime\n",
-                    "    updated_at: datetime\n",
-                ]
-            )
-            if has_auth:
-                lines.append("    created_by_id: Optional[int] = None\n")
-            lines.extend(
-                [
+                    "    completed: bool\n",
                     "\n",
                     "    class Config:\n",
                     "        orm_mode = True\n",
@@ -499,6 +437,108 @@ class BackendGenerator(CodeGenerator):
                 ]
             )
 
+        if "Product" in entities:
+            lines.extend(
+                [
+                    "class ProductCreate(BaseModel):\n",
+                    "    name: str\n",
+                    "    description: Optional[str] = None\n",
+                    "    price: float\n",
+                    "\n",
+                    "class ProductRead(BaseModel):\n",
+                    "    id: int\n",
+                    "    name: str\n",
+                    "    description: Optional[str] = None\n",
+                    "    price: float\n",
+                    "    available: bool\n",
+                    "\n",
+                    "    class Config:\n",
+                    "        orm_mode = True\n",
+                    "\n",
+                ]
+            )
+
+        if "Order" in entities:
+            lines.extend(
+                [
+                    "class OrderCreate(BaseModel):\n",
+                    "    user_id: int\n",
+                    "    total_amount: float\n",
+                    "\n",
+                    "class OrderRead(BaseModel):\n",
+                    "    id: int\n",
+                    "    user_id: int\n",
+                    "    status: str\n",
+                    "    total_amount: float\n",
+                    "\n",
+                    "    class Config:\n",
+                    "        orm_mode = True\n",
+                    "\n",
+                ]
+            )
+
+        if "CartItem" in entities:
+            lines.extend(
+                [
+                    "class CartItemCreate(BaseModel):\n",
+                    "    user_id: int\n",
+                    "    product_id: int\n",
+                    "    quantity: int\n",
+                    "\n",
+                    "class CartItemRead(BaseModel):\n",
+                    "    id: int\n",
+                    "    user_id: int\n",
+                    "    product_id: int\n",
+                    "    quantity: int\n",
+                    "\n",
+                    "    class Config:\n",
+                    "        orm_mode = True\n",
+                    "\n",
+                ]
+            )
+
+        if "Todo" in entities:
+            lines.extend(
+                [
+                    "class TodoCreate(BaseModel):\n",
+                    "    title: str\n",
+                    "\n",
+                    "class TodoRead(BaseModel):\n",
+                    "    id: int\n",
+                    "    title: str\n",
+                    "    completed: bool\n",
+                    "\n",
+                    "    class Config:\n",
+                    "        orm_mode = True\n",
+                    "\n",
+                ]
+            )
+
+        handled_entities = {"User", "Task", "Product", "Order", "CartItem", "Todo"}
+        for entity in entities:
+            if entity in handled_entities:
+                continue
+            lines.extend([
+                f"class {entity}Create(BaseModel):\n",
+                "    name: str\n",
+                "    description: Optional[str] = None\n",
+                "    category: Optional[str] = 'General'\n",
+                "    status: Optional[str] = 'Active'\n",
+                "\n",
+                f"class {entity}Read(BaseModel):\n",
+                "    id: int\n",
+                "    name: str\n",
+                "    description: Optional[str] = None\n",
+                "    category: str\n",
+                "    status: str\n",
+                "\n",
+                "    class Config:\n",
+                "        orm_mode = True\n",
+                "\n",
+            ])
+
+        if not lines:
+            return ""
         return "".join(lines)
 
     def _services_content(self, entities: list[str], has_auth: bool) -> str:
@@ -507,13 +547,22 @@ class BackendGenerator(CodeGenerator):
             "\n",
         ]
 
-        if has_auth:
-            lines.append("from models.models import User\n")
-
-        for entity in entities:
-            if entity == "User":
-                continue
-            lines.append(f"from models.models import {entity}\n")
+        if has_auth or "Task" in entities or "Order" in entities or "CartItem" in entities or "Todo" in entities:
+            lines.append("from app.models.models import User\n")
+        if "Task" in entities:
+            lines.append("from app.models.models import Task\n")
+        if "Product" in entities:
+            lines.append("from app.models.models import Product\n")
+        if "Order" in entities:
+            lines.append("from app.models.models import Order\n")
+        if "CartItem" in entities:
+            lines.append("from app.models.models import CartItem\n")
+        if "Todo" in entities:
+            lines.append("from app.models.models import Todo\n")
+        handled_entities = {"User", "Task", "Product", "Order", "CartItem", "Todo"}
+        generic_entities = [entity for entity in entities if entity not in handled_entities]
+        if generic_entities:
+            lines.append(f"from app.models.models import {', '.join(generic_entities)}\n")
 
         lines.append("\n")
 
@@ -533,28 +582,97 @@ class BackendGenerator(CodeGenerator):
                 ]
             )
 
-        for entity in entities:
-            if entity == "User":
-                continue
-
-            plural_name = self._pluralize(entity).lower()
+        if "Task" in entities:
             lines.extend(
                 [
-                    f"def get_{plural_name}(db: Session, created_by_id: int | None = None) -> list[{entity}]:\n",
-                    "    query = db.query({0})\n".format(entity),
-                    "    if created_by_id is not None:\n",
-                    "        query = query.filter({0}.created_by_id == created_by_id)\n".format(entity),
-                    "    return query.all()\n",
+                    "def get_tasks(db: Session, user_id: int) -> list[Task]:\n",
+                    "    return db.query(Task).filter(Task.owner_id == user_id).all()\n",
                     "\n",
-                    f"def create_{entity.lower()}(db: Session, name: str, description: str | None = None, created_by_id: int | None = None) -> {entity}:\n",
-                    "    item = {0}(name=name, description=description, created_by_id=created_by_id)\n".format(entity),
-                    "    db.add(item)\n",
+                    "def create_task(db: Session, title: str, description: str | None, owner_id: int) -> Task:\n",
+                    "    task = Task(title=title, description=description, owner_id=owner_id)\n",
+                    "    db.add(task)\n",
                     "    db.commit()\n",
-                    "    db.refresh(item)\n",
-                    "    return item\n",
+                    "    db.refresh(task)\n",
+                    "    return task\n",
                     "\n",
                 ]
             )
+
+        if "Product" in entities:
+            lines.extend(
+                [
+                    "def get_products(db: Session) -> list[Product]:\n",
+                    "    return db.query(Product).filter(Product.available == True).all()\n",
+                    "\n",
+                    "def create_product(db: Session, name: str, description: str | None, price: float) -> Product:\n",
+                    "    product = Product(name=name, description=description, price=price)\n",
+                    "    db.add(product)\n",
+                    "    db.commit()\n",
+                    "    db.refresh(product)\n",
+                    "    return product\n",
+                    "\n",
+                ]
+            )
+
+        if "Order" in entities:
+            lines.extend(
+                [
+                    "def get_orders(db: Session, user_id: int) -> list[Order]:\n",
+                    "    return db.query(Order).filter(Order.user_id == user_id).all()\n",
+                    "\n",
+                    "def create_order(db: Session, user_id: int, total_amount: float) -> Order:\n",
+                    "    order = Order(user_id=user_id, total_amount=total_amount)\n",
+                    "    db.add(order)\n",
+                    "    db.commit()\n",
+                    "    db.refresh(order)\n",
+                    "    return order\n",
+                    "\n",
+                ]
+            )
+
+        if "CartItem" in entities:
+            lines.extend(
+                [
+                    "def add_to_cart(db: Session, user_id: int, product_id: int, quantity: int) -> CartItem:\n",
+                    "    cart_item = CartItem(user_id=user_id, product_id=product_id, quantity=quantity)\n",
+                    "    db.add(cart_item)\n",
+                    "    db.commit()\n",
+                    "    db.refresh(cart_item)\n",
+                    "    return cart_item\n",
+                    "\n",
+                ]
+            )
+
+        if "Todo" in entities:
+            lines.extend(
+                [
+                    "def get_todos(db: Session, user_id: int) -> list[Todo]:\n",
+                    "    return db.query(Todo).filter(Todo.owner_id == user_id).all()\n",
+                    "\n",
+                    "def create_todo(db: Session, title: str, owner_id: int) -> Todo:\n",
+                    "    todo = Todo(title=title, owner_id=owner_id)\n",
+                    "    db.add(todo)\n",
+                    "    db.commit()\n",
+                    "    db.refresh(todo)\n",
+                    "    return todo\n",
+                    "\n",
+                ]
+            )
+
+        for entity in generic_entities:
+            function_name = self._snake_case(entity)
+            lines.extend([
+                f"def get_{self._plural_name(function_name)}(db: Session) -> list[{entity}]:\n",
+                f"    return db.query({entity}).all()\n",
+                "\n",
+                f"def create_{function_name}(db: Session, name: str, description: str | None) -> {entity}:\n",
+                f"    item = {entity}(name=name, description=description)\n",
+                "    db.add(item)\n",
+                "    db.commit()\n",
+                "    db.refresh(item)\n",
+                "    return item\n",
+                "\n",
+            ])
 
         return "".join(lines)
 
@@ -562,222 +680,285 @@ class BackendGenerator(CodeGenerator):
         lines = [
             "from fastapi import APIRouter, Depends, HTTPException, status\n",
         ]
+        if has_auth:
+            lines.append("from fastapi.security import OAuth2PasswordBearer\n")
 
         if requires_database:
             lines.append("from sqlalchemy.orm import Session\n")
-            lines.append("from database.connection import get_db\n")
+            lines.append("from app.database.connection import get_db\n")
+            model_names = [entity for entity in entities if entity != "User"]
+            if has_auth and "User" in entities:
+                model_names.insert(0, "User")
+            if model_names:
+                lines.append(f"from app.models.models import {', '.join(model_names)}\n")
 
         if has_auth:
-            lines.append(
-                "from fastapi.security import OAuth2PasswordBearer\n"
-                "from auth.jwt import create_access_token, hash_password, verify_access_token, verify_password\n"
-                "from models.models import User\n"
-                "from schemas.schemas import LoginRequest, Token, UserCreate, UserRead\n"
-            )
+            lines.append("from app.auth.jwt import create_access_token\n")
+            lines.append("from app.schemas.schemas import LoginRequest, Token, UserCreate, UserRead\n")
 
-        for entity in entities:
-            if entity == "User":
-                continue
-            lines.append(f"from schemas.schemas import {entity}Create, {entity}Read\n")
+        if "Task" in entities:
+            lines.append("from app.schemas.schemas import TaskCreate, TaskRead\n")
+        if "Product" in entities:
+            lines.append("from app.schemas.schemas import ProductCreate, ProductRead\n")
+        if "Order" in entities:
+            lines.append("from app.schemas.schemas import OrderCreate, OrderRead\n")
+        if "CartItem" in entities:
+            lines.append("from app.schemas.schemas import CartItemCreate, CartItemRead\n")
+        if "Todo" in entities:
+            lines.append("from app.schemas.schemas import TodoCreate, TodoRead\n")
+        generic_entities = [
+            entity for entity in entities
+            if entity not in {"User", "Task", "Product", "Order", "CartItem", "Todo"}
+        ]
+        for entity in generic_entities:
+            lines.append(f"from app.schemas.schemas import {entity}Create, {entity}Read\n")
 
         if requires_database:
             service_imports = []
             if has_auth:
                 service_imports.extend(["get_user_by_email", "create_user"])
-            for entity in entities:
-                if entity == "User":
-                    continue
-                plural_name = self._pluralize(entity).lower()
-                service_imports.extend([f"get_{plural_name}", f"create_{entity.lower()}"])
+            if "Task" in entities:
+                service_imports.extend(["get_tasks", "create_task"])
+            if "Product" in entities:
+                service_imports.extend(["get_products", "create_product"])
+            if "Order" in entities:
+                service_imports.extend(["get_orders", "create_order"])
+            if "CartItem" in entities:
+                service_imports.append("add_to_cart")
+            if "Todo" in entities:
+                service_imports.extend(["get_todos", "create_todo"])
 
-            imports = ", ".join(service_imports)
-            lines.append(f"from services.services import {imports}\n")
+            if service_imports:
+                imports = ", ".join(service_imports)
+                lines.append(f"from app.services.services import {imports}\n")
 
         lines.append("\n")
-        lines.append("oauth2_scheme = OAuth2PasswordBearer(tokenUrl=\"/api/login\")\n")
-        lines.append("router = APIRouter(prefix=\"/api\")\n")
+        lines.append("router = APIRouter()\n")
         lines.append("\n")
         lines.append("@router.get('/health')\n")
         lines.append("async def health_check() -> dict[str, str]:\n")
         lines.append("    return {'status': 'ok'}\n")
         lines.append("\n")
 
+        if requires_database:
+            if has_auth:
+                lines.extend([
+                    "oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/login')\n",
+                    "\n",
+                    "def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:\n",
+                    "    email = token.split(':', 1)[0]\n",
+                    "    user = get_user_by_email(db, email)\n",
+                    "    if user is None:\n",
+                    "        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid authentication token')\n",
+                    "    return user\n",
+                    "\n",
+                ])
+            lines.extend([
+                "@router.get('/counts')\n",
+                "def database_counts(db: Session = Depends(get_db)"
+                + (", current_user: User = Depends(get_current_user)" if has_auth else "")
+                + ") -> dict[str, int]:\n",
+                "    counts = {\n",
+            ])
+            for entity in entities:
+                if entity == "User":
+                    continue
+                route_name = re.sub(r"[^a-z0-9]", "", self._plural_name(self._snake_case(entity)))
+                query = f"db.query({entity})"
+                if has_auth:
+                    query += f".filter({entity}.created_by_id == current_user.id)"
+                lines.append(f"        {route_name!r}: {query}.count(),\n")
+            lines.extend([
+                "    }\n",
+                "    counts['total'] = sum(counts.values())\n",
+                "    return counts\n",
+                "\n",
+            ])
+
         if has_auth:
             lines.extend(
                 [
-                    "def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:\n",
-                    "    payload = verify_access_token(token)\n",
-                    "    email = payload.get('sub')\n",
-                    "    if not email:\n",
-                    "        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid authentication token')\n",
-                    "    user = get_user_by_email(db, email)\n",
-                    "    if not user:\n",
-                    "        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid user credentials')\n",
-                    "    return user\n",
-                    "\n",
                     "@router.post('/login', response_model=Token)\n",
                     "def login(request: LoginRequest, db: Session = Depends(get_db)): \n",
                     "    user = get_user_by_email(db, request.email)\n",
-                    "    if not user or not verify_password(request.password, user.hashed_password):\n",
+                    "    if not user or user.hashed_password != request.password:\n",
                     "        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')\n",
-                    "    access_token = create_access_token(user.email)\n",
+                    "    access_token = create_access_token(request.email)\n",
                     "    return {'access_token': access_token, 'token_type': 'bearer'}\n",
                     "\n",
+                    "@router.post('/api/login', response_model=Token)\n",
+                    "def api_login(request: LoginRequest, db: Session = Depends(get_db)): \n",
+                    "    return login(request, db)\n",
+                    "\n",
+                ]
+            )
+            lines.extend(
+                [
                     "@router.post('/register', response_model=UserRead)\n",
                     "def register(request: UserCreate, db: Session = Depends(get_db)): \n",
                     "    existing = get_user_by_email(db, request.email)\n",
                     "    if existing:\n",
                     "        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Email already registered')\n",
-                    "    user = create_user(db, request.email, hash_password(request.password))\n",
+                    "    user = create_user(db, request.email, request.password)\n",
                     "    return user\n",
                     "\n",
+                    "@router.post('/api/register', response_model=UserRead)\n",
+                    "def api_register(request: UserCreate, db: Session = Depends(get_db)): \n",
+                    "    return register(request, db)\n",
+                    "\n",
                 ]
             )
 
-        for entity in entities:
-            if entity == "User":
-                continue
-
-            plural_route = self._pluralize(entity).lower()
+        if "Task" in entities:
             lines.extend(
                 [
-                    f"@router.get('/{plural_route}', response_model=list[{entity}Read])\n",
-                    "def list_items(db: Session = Depends(get_db)" + (", current_user: User = Depends(get_current_user)" if has_auth else "") + "): \n",
-                    ("    return get_{0}(db, created_by_id=current_user.id)\n" if has_auth else "    return get_{0}(db)\n").format(plural_route),
+                    "@router.get('/tasks', response_model=list[TaskRead])\n",
+                    "def list_tasks(db: Session = Depends(get_db)): \n",
+                    "    return get_tasks(db, user_id=1)\n",
                     "\n",
-                    f"@router.post('/{plural_route}', response_model={entity}Read)\n",
-                    "def create_item(request: {0}Create, db: Session = Depends(get_db)".format(entity) + (", current_user: User = Depends(get_current_user)" if has_auth else "") + "): \n",
-                    ("    return create_{0}(db, request.name, request.description, created_by_id=current_user.id)\n" if has_auth else "    return create_{0}(db, request.name, request.description)\n").format(entity.lower()),
+                    "@router.post('/tasks', response_model=TaskRead)\n",
+                    "def create_task_route(request: TaskCreate, db: Session = Depends(get_db)): \n",
+                    "    return create_task(db, request.title, request.description, owner_id=1)\n",
                     "\n",
                 ]
             )
+
+        if "Product" in entities:
+            lines.extend(
+                [
+                    "@router.get('/products', response_model=list[ProductRead])\n",
+                    "def list_products(db: Session = Depends(get_db)): \n",
+                    "    return get_products(db)\n",
+                    "\n",
+                ]
+            )
+
+        if "Order" in entities:
+            lines.extend(
+                [
+                    "@router.get('/orders', response_model=list[OrderRead])\n",
+                    "def list_orders(db: Session = Depends(get_db)): \n",
+                    "    return get_orders(db, user_id=1)\n",
+                    "\n",
+                ]
+            )
+
+        if "CartItem" in entities:
+            lines.extend(
+                [
+                    "@router.post('/cart', response_model=CartItemRead)\n",
+                    "def add_cart_item(request: CartItemCreate, db: Session = Depends(get_db)): \n",
+                    "    return add_to_cart(db, request.user_id, request.product_id, request.quantity)\n",
+                    "\n",
+                ]
+            )
+
+        if "Todo" in entities:
+            lines.extend(
+                [
+                    "@router.get('/todos', response_model=list[TodoRead])\n",
+                    "def list_todos(db: Session = Depends(get_db)): \n",
+                    "    return get_todos(db, user_id=1)\n",
+                    "\n",
+                    "@router.post('/todos', response_model=TodoRead)\n",
+                    "def create_todo_route(request: TodoCreate, db: Session = Depends(get_db)): \n",
+                    "    return create_todo(db, request.title, owner_id=1)\n",
+                    "\n",
+                ]
+            )
+
+        for entity in generic_entities:
+            route = self._plural_name(self._snake_case(entity))
+            user_dependency = ", current_user: User = Depends(get_current_user)" if has_auth else ""
+            ownership = ", created_by_id=current_user.id" if has_auth else ""
+            lines.extend([
+                f"@router.get('/{route}', response_model=list[{entity}Read])\n",
+                f"def list_{route}(db: Session = Depends(get_db){user_dependency}):\n",
+                f"    query = db.query({entity})\n",
+            ])
+            if has_auth:
+                lines.append(f"    query = query.filter({entity}.created_by_id == current_user.id)\n")
+            lines.extend([
+                "    return query.order_by("
+                f"{entity}.created_at.desc()).all()\n",
+                "\n",
+                f"@router.post('/{route}', response_model={entity}Read)\n",
+                f"def create_{self._snake_case(entity)}(request: {entity}Create, db: Session = Depends(get_db){user_dependency}):\n",
+                f"    item = {entity}(name=request.name, description=request.description, category=request.category or 'General', status=request.status or 'Active'{ownership})\n",
+                "    db.add(item)\n",
+                "    db.commit()\n",
+                "    db.refresh(item)\n",
+                "    return item\n",
+                "\n",
+            ])
 
         return "".join(lines)
 
     def _auth_jwt_content(self) -> str:
         return (
-            "from __future__ import annotations\n"
-            "import base64\n"
-            "import hashlib\n"
-            "import hmac\n"
-            "import json\n"
-            "import os\n"
             "from datetime import datetime, timedelta\n"
-            "from typing import Any\n"
             "\n"
-            "SECRET_KEY = os.getenv('SECRET_KEY', 'replace-this-secret')\n"
+            "SECRET_KEY = 'change-me'\n"
             "ALGORITHM = 'HS256'\n"
             "ACCESS_TOKEN_EXPIRE_MINUTES = 60\n"
             "\n"
-            "def _urlsafe_b64encode(data: bytes) -> str:\n"
-            "    return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')\n"
-            "\n"
-            "def _urlsafe_b64decode(data: str) -> bytes:\n"
-            "    padding = '=' * (-len(data) % 4)\n"
-            "    return base64.urlsafe_b64decode(data + padding)\n"
-            "\n"
-            "def _sign(message: bytes) -> str:\n"
-            "    signature = hmac.new(SECRET_KEY.encode('utf-8'), message, hashlib.sha256).digest()\n"
-            "    return _urlsafe_b64encode(signature)\n"
-            "\n"
-            "def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:\n"
-            "    expires_delta = expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)\n"
-            "    payload = {'sub': subject, 'exp': int((datetime.utcnow() + expires_delta).timestamp())}\n"
-            "    header = {'alg': ALGORITHM, 'typ': 'JWT'}\n"
-            "    encoded_header = _urlsafe_b64encode(json.dumps(header, separators=(',', ':')).encode('utf-8'))\n"
-            "    encoded_payload = _urlsafe_b64encode(json.dumps(payload, separators=(',', ':')).encode('utf-8'))\n"
-            "    signature = _sign(f'{encoded_header}.{encoded_payload}'.encode('utf-8'))\n"
-            "    return f'{encoded_header}.{encoded_payload}.{signature}'\n"
-            "\n"
-            "def verify_access_token(token: str) -> dict[str, Any]:\n"
-            "    try:\n"
-            "        encoded_header, encoded_payload, signature = token.split('.')\n"
-            "        expected = _sign(f'{encoded_header}.{encoded_payload}'.encode('utf-8'))\n"
-            "        if not hmac.compare_digest(expected, signature):\n"
-            "            raise ValueError('Invalid token signature')\n"
-            "        payload = json.loads(_urlsafe_b64decode(encoded_payload).decode('utf-8'))\n"
-            "        if int(payload.get('exp', 0)) < int(datetime.utcnow().timestamp()):\n"
-            "            raise ValueError('Token has expired')\n"
-            "        return payload\n"
-            "    except (ValueError, json.JSONDecodeError):\n"
-            "        raise ValueError('Invalid token')\n"
-            "\n"
-            "def hash_password(password: str) -> str:\n"
-            "    salt = os.urandom(16)\n"
-            "    hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)\n"
-            "    return f'{_urlsafe_b64encode(salt)}${_urlsafe_b64encode(hashed)}'\n"
-            "\n"
-            "def verify_password(password: str, hashed_password: str) -> bool:\n"
-            "    try:\n"
-            "        salt, expected = hashed_password.split('$', 1)\n"
-            "        hashed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), _urlsafe_b64decode(salt), 100000)\n"
-            "        return hmac.compare_digest(_urlsafe_b64encode(hashed), expected)\n"
-            "    except ValueError:\n"
-            "        return False\n"
+            "def create_access_token(email: str) -> str:\n"
+            "    expiry = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)\n"
+            "    return f'{email}:{int(expiry.timestamp())}'\n"
         )
 
-    def _main_content(self, requires_database: bool) -> str:
+    @staticmethod
+    def _snake_case(value: str) -> str:
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", value).lower()
+
+    @staticmethod
+    def _plural_name(value: str) -> str:
+        if value.endswith(("s", "x")) and value.endswith("ss"):
+            return value + "es"
+        if value.endswith(("sh", "ch", "x", "z")):
+            return value + "es"
+        if value.endswith("y") and not value.endswith(("ay", "ey", "oy", "uy")):
+            return value[:-1] + "ies"
+        if value.endswith("s"):
+            return value
+        return value + "s"
+
+    def _main_content(self, has_auth: bool, requires_database: bool = True) -> str:
         lines = [
             "from fastapi import FastAPI\n",
             "from fastapi.middleware.cors import CORSMiddleware\n",
         ]
         if requires_database:
-            lines.extend(
-                [
-                    "from contextlib import asynccontextmanager\n",
-                    "from database.connection import engine\n",
-                    "from models.models import Base\n",
-                ]
-            )
-        lines.append("from routers.routes import router\n")
-        lines.append("\n")
-        if requires_database:
-            lines.extend(
-                [
-                    "@asynccontextmanager\n",
-                    "async def lifespan(app: FastAPI):\n",
-                    "    Base.metadata.create_all(bind=engine)\n",
-                    "    yield\n",
-                    "\n",
-                ]
-            )
-        lines.append("app = FastAPI(title='Generated FastAPI Backend'")
-        if requires_database:
-            lines.append(", lifespan=lifespan")
-        lines.append(")\n")
-        lines.append("\n")
-        lines.extend(
-            [
-                "app.add_middleware(\n",
-                "    CORSMiddleware,\n",
-                "    allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'],\n",
-                "    allow_credentials=True,\n",
-                "    allow_methods=['*'],\n",
-                "    allow_headers=['*'],\n",
-                ")\n",
-                "\n",
-            ]
-        )
-        lines.append("app.include_router(router)\n")
-        lines.append("\n")
-        lines.extend(
-            [
-                "@app.get('/')\n",
-                "async def read_root() -> dict[str, str]:\n",
-                "    return {'message': 'Generated backend is running'}\n",
-            ]
-        )
+            lines.extend([
+                "from app.database.connection import engine\n",
+                "from app.models.models import Base\n",
+                "Base.metadata.create_all(bind=engine)\n",
+            ])
+        lines.extend([
+            "from app.routers.routes import router\n",
+            "\n",
+            "app = FastAPI(title='Generated FastAPI Backend')\n",
+            "app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_credentials=False, allow_methods=['*'], allow_headers=['*'])\n",
+            "app.include_router(router)\n",
+            "\n",
+            "@app.get('/')\n",
+            "async def read_root() -> dict[str, str]:\n",
+            "    return {'message': 'Generated backend is running'}\n",
+        ])
         return "".join(lines)
-
-    def _requirements_content(self, has_postgres: bool) -> str:
-        """Return the dependency manifest required by the generated backend."""
-        requirements = ["fastapi", "uvicorn", "sqlalchemy", "pydantic"]
-        if has_postgres:
-            requirements.append("psycopg2-binary")
-        return "".join(f"{requirement}\n" for requirement in requirements)
 
     def _package_init_content(self) -> str:
         return "# Package initialization\n"
+
+    def _requirements_content(self, has_postgres: bool) -> str:
+        requirements = [
+            "fastapi>=0.110,<1.0",
+            "uvicorn[standard]>=0.27,<1.0",
+            "SQLAlchemy>=2.0,<3.0",
+        ]
+        if has_postgres:
+            requirements.append("psycopg2-binary>=2.9,<3.0")
+        return "\n".join(requirements) + "\n"
 
     def _validate_generated_files(self, generated_files: list[GeneratedFile]) -> None:
         seen_paths: set[str] = set()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Any, Protocol
 
 from ..llm.ollama_client import OllamaClient
 from .code_schema import GeneratedFile
@@ -21,7 +21,7 @@ class CodeGenerator(ABC):
         self.ollama_client = ollama_client or OllamaClient()
 
     @abstractmethod
-    def generate_files(self, prompt_provider: PromptProvider) -> list[GeneratedFile]:
+    def generate_files(self, prompt_provider: PromptProvider, project_name: str = "", requirements: Any = None, language: str = "en") -> list[GeneratedFile]:
         """Generate a set of files based on the provided prompt provider."""
         raise NotImplementedError
 
