@@ -1,17 +1,6 @@
-// Auto-generated multilingual dictionary.
-export type LangCode = 'en' | 'hi' | 'kn' | 'mr' | 'te';
-
-export const LANG_NAMES: Record<LangCode, string> = {
-  'en': 'English',
-  'hi': 'हिन्दी',
-  'kn': 'ಕನ್ನಡ',
-  'mr': 'मराठी',
-  'te': 'తెలుగు',
-};
-
-export const translations: Record<LangCode, Record<string, string>> = {
+export const translations = {
   'en': {
-    'appLabel': 'Test Media',
+    'appLabel': 'Test Project',
     'dashboard': 'Dashboard',
     'quickAccess': 'Quick Access',
     'createNew': 'Create New',
@@ -40,12 +29,13 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'siteLanguageHint': 'Choose display language',
     'sections': 'Sections',
     'overview': 'Overview',
-    'items': 'Items',
-    'reports': 'Reports',
+    'tasks': 'Tasks',
+    'projects': 'Projects',
+    'team': 'Team'
   },
   'hi': {
     'appLabel': 'ऐप डैशबोर्ड',
-    'dashboard': 'डैशबोर्ड',
+    'dashboard': 'Dashboard',
     'quickAccess': 'त्वरित पहुँच',
     'createNew': 'नया बनाएँ',
     'insights': 'रिपोर्ट और अंतर्दृष्टि',
@@ -62,7 +52,7 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'create': 'बनाएँ',
     'language': 'भाषा',
     'recentlyCreated': 'हाल में बनाए गए',
-    'noRecords': "अभी कोई रिकॉर्ड नहीं। नया बनाने के लिए 'नया बनाएँ' पर क्लिक करें।",
+    'noRecords': 'अभी कोई रिकॉर्ड नहीं। नया बनाने के लिए \'नया बनाएँ\' पर क्लिक करें।',
     'signedInMsg': '✅ आप {user} के रूप में साइन इन हैं।',
     'insightsSubtitle': 'इस कार्यक्षेत्र में बनाए गए आइटम।',
     'insightsCol1': 'नाम',
@@ -73,12 +63,13 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'siteLanguageHint': 'प्रदर्शन भाषा चुनें',
     'sections': 'अनुभाग',
     'overview': 'अवलोकन',
-    'items': 'आइटम',
-    'reports': 'रिपोर्ट',
+    'tasks': 'Tasks',
+    'projects': 'Projects',
+    'team': 'Team'
   },
   'kn': {
     'appLabel': 'ಆ್ಯಪ್ ಡ್ಯಾಶ್ಬೋರ್ಡ್',
-    'dashboard': 'ಡ್ಯಾಶ್ಬೋರ್ಡ್',
+    'dashboard': 'Dashboard',
     'quickAccess': 'ತ್ವರಿತ ಪ್ರವೇಶ',
     'createNew': 'ಹೊಸದನ್ನು ರಚಿಸಿ',
     'insights': 'ವರದಿಗಳು ಮತ್ತು ಒಳನೋಟಗಳು',
@@ -95,7 +86,7 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'create': 'ರಚಿಸಿ',
     'language': 'ಭಾಷೆ',
     'recentlyCreated': 'ಇತ್ತೀಚೆಗೆ ರಚಿಸಲಾಗಿದೆ',
-    'noRecords': "ಇನ್ನೂ ಯಾವುದೇ ದಾಖಲೆಗಳಿಲ್ಲ. ಹೊಸದನ್ನು ರಚಿಸಲು 'ಹೊಸದನ್ನು ರಚಿಸಿ' ಕ್ಲಿಕ್ ಮಾಡಿ.",
+    'noRecords': 'ಇನ್ನೂ ಯಾವುದೇ ದಾಖಲೆಗಳಿಲ್ಲ. ಹೊಸದನ್ನು ರಚಿಸಲು \'ಹೊಸದನ್ನು ರಚಿಸಿ\' ಕ್ಲಿಕ್ ಮಾಡಿ.',
     'signedInMsg': '✅ ನೀವು {user} ಆಗಿ ಸೈನ್ ಇನ್ ಆಗಿದ್ದೀರಿ.',
     'insightsSubtitle': 'ಈ ಕಾರ್ಯಕ್ಷೇತ್ರದಲ್ಲಿ ರಚಿಸಲಾದ ಐಟಂಗಳು.',
     'insightsCol1': 'ಹೆಸರು',
@@ -106,12 +97,13 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'siteLanguageHint': 'ಪ್ರದರ್ಶನ ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ',
     'sections': 'ವಿಭಾಗಗಳು',
     'overview': 'ಅವಲೋಕನ',
-    'items': 'ಐಟಂಗಳು',
-    'reports': 'ವರದಿಗಳು',
+    'tasks': 'Tasks',
+    'projects': 'Projects',
+    'team': 'Team'
   },
   'mr': {
-    'appLabel': 'अ\u200dॅप डॅशबोर्ड',
-    'dashboard': 'डॅशबोर्ड',
+    'appLabel': 'अ‍ॅप डॅशबोर्ड',
+    'dashboard': 'Dashboard',
     'quickAccess': 'जलद प्रवेश',
     'createNew': 'नवीन तयार करा',
     'insights': 'अहवाल आणि अंतर्दृष्टी',
@@ -128,7 +120,7 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'create': 'तयार करा',
     'language': 'भाषा',
     'recentlyCreated': 'अलीकडे तयार केले',
-    'noRecords': "अद्याप कोणतेही रेकॉर्ड नाहीत. नवीन तयार करण्यासाठी 'नवीन तयार करा' क्लिक करा.",
+    'noRecords': 'अद्याप कोणतेही रेकॉर्ड नाहीत. नवीन तयार करण्यासाठी \'नवीन तयार करा\' क्लिक करा.',
     'signedInMsg': '✅ तुम्ही {user} म्हणून साइन इन आहात.',
     'insightsSubtitle': 'या कार्यक्षेत्रात तयार केलेल्या वस्तू.',
     'insightsCol1': 'नाव',
@@ -139,12 +131,13 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'siteLanguageHint': 'प्रदर्शन भाषा निवडा',
     'sections': 'विभाग',
     'overview': 'विहंगावलोकन',
-    'items': 'आयटम',
-    'reports': 'अहवाल',
+    'tasks': 'Tasks',
+    'projects': 'Projects',
+    'team': 'Team'
   },
   'te': {
     'appLabel': 'యాప్ డాష్బోర్డ్',
-    'dashboard': 'డాష్బోర్డ్',
+    'dashboard': 'Dashboard',
     'quickAccess': 'శీఘ్ర ప్రాప్యత',
     'createNew': 'కొత్తది సృష్టించండి',
     'insights': 'నివేదికలు మరియు అంతర్దృష్టులు',
@@ -161,7 +154,7 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'create': 'సృష్టించండి',
     'language': 'భాష',
     'recentlyCreated': 'ఇటీవల సృష్టించినవి',
-    'noRecords': "ఇంకా రికార్డ్\u200cలు లేవు. కొత్తది సృష్టించడానికి 'కొత్తది సృష్టించండి' క్లిక్ చేయండి.",
+    'noRecords': 'ఇంకా రికార్డ్‌లు లేవు. కొత్తది సృష్టించడానికి \'కొత్తది సృష్టించండి\' క్లిక్ చేయండి.',
     'signedInMsg': '✅ మీరు {user} గా సైన్ ఇన్ అయ్యారు.',
     'insightsSubtitle': 'ఈ కార్యస్థలంలో సృష్టించిన అంశాలు.',
     'insightsCol1': 'పేరు',
@@ -172,8 +165,9 @@ export const translations: Record<LangCode, Record<string, string>> = {
     'siteLanguageHint': 'ప్రదర్శన భాషను ఎంచుకోండి',
     'sections': 'విభాగాలు',
     'overview': 'అవలోకనం',
-    'items': 'అంశాలు',
-    'reports': 'నివేదికలు',
-  },
-};
-
+    'tasks': 'Tasks',
+    'projects': 'Projects',
+    'team': 'Team'
+  }
+} as const;
+export type LangCode = keyof typeof translations;

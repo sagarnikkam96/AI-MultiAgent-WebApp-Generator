@@ -3,42 +3,55 @@ import type { AppRecord } from './App';
 
 interface DashboardProps {
   records: AppRecord[];
+  entityCounts?: Record<string, number>;
+  databaseCountError?: string | null;
+  countsSource: 'database' | 'browser';
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ records }) => {
-  const stats = [
-    { label: 'Active users', value: '1,240' },
-    { label: 'Task completion', value: '82%' },
-    { label: 'Engagement', value: '5,300' },
-    { label: 'Growth', value: '14%' },
-  ];
+const stats = [{"label": "Tasks", "key": "tasks"}, {"label": "Projects", "key": "projects"}, {"label": "Team", "key": "teams"}];
 
+const Dashboard: React.FC<DashboardProps> = ({ records, entityCounts, databaseCountError, countsSource }) => {
   return (
-    <>
+    <div className="dashboard-content">
+      {databaseCountError && <p className="muted" role="status">Database counts are unavailable: {databaseCountError}</p>}
       <div className="dashboard-grid">
-        {stats.map((stat, index) => (
-          <div key={index} className="dashboard-card">
+        {stats.map((stat) => (
+          <article className="dashboard-card" key={stat.key}>
             <span className="stat-label">{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
+            <strong className="stat-value">{entityCounts?.[stat.key] ?? '—'}</strong>
+            <span className="stat-sub">{countsSource === 'database' ? 'From the application database' : 'Saved in this browser'}</span>
+          </article>
         ))}
       </div>
 
-      <div className="dashboard-record-section">
-        <h2>Recently created</h2>
+      <div className="dashboard-record-section recent-section">
+        <div className="section-head-row">
+          <div>
+            <p className="eyebrow">Activity</p>
+            <h2>Tasks added recently</h2>
+          </div>
+          <span className="badge-pill">{records.length} in this session</span>
+        </div>
         {records.length === 0 ? (
-          <p className="muted">Nothing created yet — use the Create New button (sign in first).</p>
+          <div className="empty-state">
+            <span aria-hidden="true">+</span>
+            <strong>No tasks have been added yet.</strong>
+            <p className="muted">Create your first record to start building this workspace.</p>
+          </div>
         ) : (
-          <ul className="resource-list">
+          <ul className="resource-list recent-list">
             {records.slice(0, 4).map((r) => (
               <li key={r.id}>
-                <strong>{r.name}</strong> — {r.field2} · {r.createdAt}
+                <span className="record-mark">{r.name.slice(0, 1).toUpperCase()}</span>
+                <span>
+                  <strong>{r.name}</strong> - {r.field2} - <small className="muted">{r.createdAt}</small>
+                </span>
               </li>
             ))}
           </ul>
         )}
       </div>
-    </>
+    </div>
   );
 };
 

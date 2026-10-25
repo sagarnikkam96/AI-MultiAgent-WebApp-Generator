@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import AiChat from './AiChat';
+import brandMark from './assets/brand-mark.svg';
+import Login from './Login';
 import Dashboard from './Dashboard';
-import SectionOne from './SectionOne';
-import SectionTwo from './SectionTwo';
+import LanguageSwitcher from './LanguageSwitcher';
+import { LanguageProvider, useLanguage } from './LanguageContext';
+import Patients from './Patients';
+import Doctors from './Doctors';
+import Appointments from './Appointments';
+import Billing from './Billing';
 
 export interface AppRecord {
   id: number;
   name: string;
-  role: string;
+  field2: string;
+  field3: string;
   createdAt: string;
 }
 
@@ -17,6 +25,7 @@ export interface CustomFeatureItem {
   status?: string;
   value?: string;
   date: string;
+  createdAt?: string;
 }
 
 export interface CustomFeature {
@@ -25,177 +34,282 @@ export interface CustomFeature {
   icon: string;
   description: string;
   type: 'table' | 'kanban' | 'form' | 'metrics' | 'notes';
+  kind?: string;
   items: CustomFeatureItem[];
   formSubmissions?: Array<{ id: number; data: Record<string, string>; date: string }>;
 }
 
-const App: React.FC = () => {
-  const [appName, setAppName] = useState('College Management System');
+const modules = [{"component": "Patients", "label": "Patients", "href": "#section-1"}, {"component": "Doctors", "label": "Doctors", "href": "#section-2"}, {"component": "Appointments", "label": "Appointments", "href": "#section-3"}, {"component": "Billing", "label": "Billing", "href": "#section-4"}];
+const initialCounts: Record<string, number> = {"patients": 0, "doctors": 0, "appointments": 0, "billings": 0};
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') || 'http://127.0.0.1:8001';
+const STORAGE_KEY = 'website_custom_hospital_management_system';
+const defaultSiteName = "Hospital Management System";
+const defaultTagline = "Coordinated Patient Care, Medical Staff & Hospital Workflows";
+
+const palettes = [
+  { name: 'Cyan', id: 'cyan', value: '#38bdf8', dark: ['#0d1b24', '#132833', '#1a3542'], light: ['#d7ebff', '#c3e0ff', '#a7cefa'] },
+  { name: 'Indigo', id: 'indigo', value: '#7868e8', dark: ['#161528', '#201e38', '#2a2750'], light: ['#e2e0ff', '#ccc8ff', '#b3adfa'] },
+  { name: 'Emerald', id: 'emerald', value: '#10b981', dark: ['#0f201c', '#172e28', '#204037'], light: ['#d8f3e5', '#c0ead5', '#a2ddc0'] },
+  { name: 'Amber', id: 'amber', value: '#f59e0b', dark: ['#211b12', '#302518', '#41321e'], light: ['#f9e8c7', '#f4d9a7', '#eac781'] },
+  { name: 'Rose', id: 'rose', value: '#d47b83', dark: ['#24171d', '#35212b', '#492b39'], light: ['#f8dfe4', '#f1cbd3', '#e6aeb9'] },
+  { name: 'Purple', id: 'purple', value: '#a855f7', dark: ['#1d1727', '#2a2038', '#3a2a50'], light: ['#eee0ff', '#ddc5ff', '#c8a6f4'] },
+];
+
+const InnerApp: React.FC = () => {
+  const { t } = useLanguage();
+  const [appName, setAppName] = useState(t('appLabel') || defaultSiteName);
   const [appSubtitle, setAppSubtitle] = useState('Autonomous Web Application');
-  const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
-  const [accentColor, setAccentColor] = useState('cyan');
-  const [user] = useState<string | null>('workspace-user');
-  const [message, setMessage] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const themeMode = theme;
+  const setThemeMode = setTheme;
+  const [accentColor, setAccentColor] = useState('#38bdf8');
+  const [user, setUser] = useState<string | null>(() => {
+    try {
+      const active = localStorage.getItem('website_active_user');
+      if (!active) return null;
+      const parsed = JSON.parse(active);
+      return parsed?.name || parsed?.email || active;
+    } catch {
+      return localStorage.getItem('website_active_user');
+    }
+  });
+  const [active, setActive] = useState('dashboard');
+  const [msg, setMsg] = useState<string | null>(null);
+  const message = msg;
+  const setMessage = setMsg;
 
-  // Main Domain Records
-  const [records, setRecords] = useState<AppRecord[]>([
-    { id: 1, name: 'Sample Record 1', role: 'Primary Lead', createdAt: new Date().toLocaleDateString() },
-    { id: 2, name: 'Sample Record 2', role: 'Active Member', createdAt: new Date().toLocaleDateString() },
-  ]);
+  // Records & Entity state
+  const [recs, setRecs] = useState<AppRecord[]>([]);
+  const records = recs;
+  const setRecords = setRecs;
+  const [entityCounts, setEntityCounts] = useState<Record<string, number>>(initialCounts);
+  const [databaseCounts, setDatabaseCounts] = useState<Record<string, number> | null>(null);
+  const [databaseCountError, setDatabaseCountError] = useState<string | null>(null);
 
-  // Record Modals
+  // Storage and UI state
+  const [storageReady, setStorageReady] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [createName, setCreateName] = useState('');
-  const [createRole, setCreateRole] = useState('');
+  const [cN, setCN] = useState('');
+  const [c2, setC2] = useState('');
+  const [c3, setC3] = useState('');
+  const recordName = cN;
+  const setRecordName = setCN;
   const [editRecord, setEditRecord] = useState<AppRecord | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('');
+  const [eN, setEN] = useState('');
+  const [e2, setE2] = useState('');
+  const [e3, setE3] = useState('');
 
-  // Custom In-Website Features
+  // Custom Features added in website
   const [customFeatures, setCustomFeatures] = useState<CustomFeature[]>([]);
   const [showFeatureStudio, setShowFeatureStudio] = useState(false);
+  const [showAiChat, setShowAiChat] = useState(false);
   const [featureTab, setFeatureTab] = useState<'builder' | 'ai'>('builder');
   const [newFeatureName, setNewFeatureName] = useState('');
+  const featureName = newFeatureName;
+  const setFeatureName = setNewFeatureName;
   const [newFeatureIcon, setNewFeatureIcon] = useState('⚡');
   const [newFeatureType, setNewFeatureType] = useState<'table' | 'kanban' | 'form' | 'metrics' | 'notes'>('table');
+  const featureKind = newFeatureType;
+  const setFeatureKind = (k: any) => setNewFeatureType(k);
   const [newFeatureDesc, setNewFeatureDesc] = useState('');
+  const featureDescription = newFeatureDesc;
+  const setFeatureDescription = setNewFeatureDesc;
   const [aiPrompt, setAiPrompt] = useState('');
 
-  // Website Customizer
+  // Modals for editing custom features & items
+  const [editCustomItem, setEditCustomItem] = useState<{ featId: string; item: CustomFeatureItem } | null>(null);
+  const [editItemTitle, setEditItemTitle] = useState('');
+  const [editItemSub, setEditItemSub] = useState('');
+  const [editItemStatus, setEditItemStatus] = useState('');
+  const [editItemVal, setEditItemVal] = useState('');
+
+  const [editFeat, setEditFeat] = useState<CustomFeature | null>(null);
+  const [editFeatName, setEditFeatName] = useState('');
+  const [editFeatDesc, setEditFeatDesc] = useState('');
+  const [editFeatIcon, setEditFeatIcon] = useState('⚡');
+
+  // Customizer and Media
   const [showCustomizer, setShowCustomizer] = useState(false);
-
-  // Dynamic inputs for custom features
   const [customItemInput, setCustomItemInput] = useState<Record<string, string>>({});
+  const featureItemDrafts = customItemInput;
+  const setFeatureItemDrafts = setCustomItemInput;
   const [customFormValues, setCustomFormValues] = useState<Record<string, Record<string, string>>>({});
-
-  // Media
+  const [reportSearch, setReportSearch] = useState('');
   const [media, setMedia] = useState<Array<{ id: number; name: string; url: string; type: string }>>([]);
 
-  const notify = (text: string) => {
-    setMessage(text);
-    window.setTimeout(() => setMessage(null), 4500);
+  const selectedPalette = palettes.find((palette) => palette.value === accentColor) ?? palettes[0];
+  const reportRecords = recs.filter((record) =>
+    `${record.name} ${record.field2} ${record.field3}`.toLocaleLowerCase().includes(reportSearch.toLocaleLowerCase())
+  );
+
+  const ntf = (text: string) => {
+    setMsg(text);
+    window.setTimeout(() => setMsg(null), 4500);
   };
 
-  // Load customizations from localStorage
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/counts`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Database count request failed (${response.status}).`);
+        return response.json() as Promise<Record<string, unknown>>;
+      })
+      .then((payload) => {
+        const counts: Record<string, number> = {};
+        for (const [key, value] of Object.entries(payload)) {
+          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+            counts[key] = value;
+          }
+        }
+        if (!cancelled && Object.keys(counts).length > 0) {
+          setDatabaseCounts(counts);
+          setDatabaseCountError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setDatabaseCountError(error instanceof Error ? error.message : 'Database counts are unavailable.');
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const isLight = theme === 'light';
+    const [pageColor, cardColor, innerColor] = selectedPalette[theme === 'light' ? 'light' : 'dark'];
+    const variables: Record<string, string> = {
+      '--accent-primary': selectedPalette.value,
+      '--accent-glow': `color-mix(in srgb, ${selectedPalette.value} 24%, transparent)`,
+      '--bg-page': pageColor,
+      '--bg-card': cardColor,
+      '--bg-inner': innerColor,
+      '--border-color': `color-mix(in srgb, ${selectedPalette.value} 22%, transparent)`,
+      '--text-main': isLight ? '#1d2933' : '#f5f2e9',
+      '--text-muted': isLight ? '#586775' : '#b6c0c4',
+    };
+    for (const target of [document.documentElement, document.body, document.querySelector<HTMLElement>('.app-shell')]) {
+      if (!target) continue;
+      for (const [property, value] of Object.entries(variables)) target.style.setProperty(property, value);
+    }
+  }, [accentColor, selectedPalette, theme]);
+
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('app_site_customization');
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.appName) setAppName(parsed.appName);
+        if (parsed.siteName) setAppName(parsed.siteName);
         if (parsed.appSubtitle) setAppSubtitle(parsed.appSubtitle);
+        if (parsed.tagline) setAppSubtitle(parsed.tagline);
         if (parsed.themeMode) setThemeMode(parsed.themeMode);
+        if (parsed.theme) setThemeMode(parsed.theme);
         if (parsed.accentColor) setAccentColor(parsed.accentColor);
-        if (parsed.records && Array.isArray(parsed.records)) setRecords(parsed.records);
-        if (parsed.customFeatures && Array.isArray(parsed.customFeatures)) setCustomFeatures(parsed.customFeatures);
+        if (Array.isArray(parsed.recs)) setRecs(parsed.recs);
+        if (Array.isArray(parsed.records)) setRecs(parsed.records);
+        if (Array.isArray(parsed.customFeatures)) setCustomFeatures(parsed.customFeatures);
       }
-    } catch {
-      // ignore
+      setStorageReady(true);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Saved website settings could not be loaded.');
     }
   }, []);
 
-  // Save customizations to localStorage
-  const saveToStorage = (updated?: {
-    name?: string;
-    sub?: string;
-    theme?: 'dark' | 'light';
-    color?: string;
-    recs?: AppRecord[];
-    features?: CustomFeature[];
-  }) => {
+  useEffect(() => {
+    if (!storageReady) return;
     try {
-      const payload = {
-        appName: updated?.name ?? appName,
-        appSubtitle: updated?.sub ?? appSubtitle,
-        themeMode: updated?.theme ?? themeMode,
-        accentColor: updated?.color ?? accentColor,
-        records: updated?.recs ?? records,
-        customFeatures: updated?.features ?? customFeatures,
-      };
-      localStorage.setItem('app_site_customization', JSON.stringify(payload));
-    } catch {
-      // ignore
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        appName,
+        appSubtitle,
+        siteName: appName,
+        tagline: appSubtitle,
+        themeMode,
+        theme: themeMode,
+        accentColor,
+        recs,
+        records: recs,
+        customFeatures,
+      }));
+      setStorageError(null);
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : 'Website changes could not be saved in this browser.');
     }
+  }, [storageReady, appName, appSubtitle, themeMode, accentColor, recs, customFeatures]);
+
+  const login = (name: string, email?: string) => {
+    const display = name || email || 'User';
+    setUser(display);
+    try {
+      localStorage.setItem('website_active_user', JSON.stringify({ name: display, email: email || '' }));
+    } catch {}
+    ntf(t('welcomeBack').replace('{email}', display));
   };
 
-  // Create Record
-  const openCreate = () => {
-    setCreateName('');
-    setCreateRole('');
+  const logout = () => {
+    setUser(null);
+    try {
+      localStorage.removeItem('website_active_user');
+    } catch {}
+    ntf(t('signedOut'));
+  };
+
+  const openC = () => {
+    if (!user) {
+      ntf(t('signInFirst'));
+      return;
+    }
+    setCN('');
+    setC2('');
+    setC3('');
     setShowCreate(true);
   };
 
-  const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
+  const create = (e: React.FormEvent) => {
     e.preventDefault();
-    const name = createName.trim();
-    if (!name) return;
+    const n = cN.trim();
+    if (!n) return;
     const newRec: AppRecord = {
       id: Date.now(),
-      name,
-      role: createRole.trim() || 'Member',
-      createdAt: new Date().toLocaleString(),
+      name: n,
+      field2: c2.trim() || 'General',
+      field3: c3.trim() || 'Active',
+      createdAt: new Date().toLocaleDateString(),
     };
-    const nextRecs = [newRec, ...records];
-    setRecords(nextRecs);
-    saveToStorage({ recs: nextRecs });
+    const next = [newRec, ...recs];
+    setRecs(next);
     setShowCreate(false);
-    notify(`Created record "${name}" successfully.`);
+    ntf(t('createdSuccess').replace('{name}', n));
   };
 
-  // Edit Record
-  const openEdit = (record: AppRecord) => {
-    setEditRecord(record);
-    setEditName(record.name);
-    setEditRole(record.role);
+  const openEdit = (r: AppRecord) => {
+    setEditRecord(r);
+    setEN(r.name);
+    setE2(r.field2);
+    setE3(r.field3);
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editRecord || !editName.trim()) return;
-    const nextRecs = records.map((r) =>
-      r.id === editRecord.id ? { ...r, name: editName.trim(), role: editRole.trim() || r.role } : r
+    if (!editRecord || !eN.trim()) return;
+    const next = recs.map((r) =>
+      r.id === editRecord.id ? { ...r, name: eN.trim(), field2: e2.trim() || r.field2, field3: e3.trim() || r.field3 } : r
     );
-    setRecords(nextRecs);
-    saveToStorage({ recs: nextRecs });
+    setRecs(next);
     setEditRecord(null);
-    notify(`Updated record "${editName}" successfully.`);
+    ntf('Record updated successfully!');
   };
 
   const handleDeleteRecord = (id: number) => {
-    const nextRecs = records.filter((r) => r.id !== id);
-    setRecords(nextRecs);
-    saveToStorage({ recs: nextRecs });
-    notify('Record removed from workspace.');
+    const next = recs.filter((r) => r.id !== id);
+    setRecs(next);
+    ntf('Record removed from workspace.');
   };
 
-  // Add Custom Feature
   const handleAddFeature = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const name = newFeatureName.trim();
     if (!name) return;
-
-    let initialItems: CustomFeatureItem[] = [];
-    if (newFeatureType === 'kanban') {
-      initialItems = [
-        { id: Date.now(), title: `${name} Task 1`, status: 'todo', date: 'Just now' },
-        { id: Date.now() + 1, title: `${name} Active Item`, status: 'in-progress', date: 'Today' },
-        { id: Date.now() + 2, title: `${name} Completed Task`, status: 'done', date: 'Yesterday' },
-      ];
-    } else if (newFeatureType === 'metrics') {
-      initialItems = [
-        { id: Date.now(), title: `${name} KPI Rate`, value: '94%', subtitle: 'Target: 90%', date: 'Live' },
-        { id: Date.now() + 1, title: `${name} Volume`, value: '1,420', subtitle: '+18% growth', date: 'Monthly' },
-      ];
-    } else if (newFeatureType === 'notes') {
-      initialItems = [
-        { id: Date.now(), title: `Key takeaway for ${name}`, subtitle: 'Important note on operations', date: 'Today' },
-      ];
-    } else {
-      initialItems = [
-        { id: Date.now(), title: `${name} Entry A`, subtitle: 'General', status: 'Active', date: 'Just now' },
-        { id: Date.now() + 1, title: `${name} Entry B`, subtitle: 'Operations', status: 'Pending', date: '10m ago' },
-      ];
-    }
 
     const feature: CustomFeature = {
       id: `feat-${Date.now()}`,
@@ -203,20 +317,18 @@ const App: React.FC = () => {
       icon: newFeatureIcon || '⚡',
       description: newFeatureDesc.trim() || `Custom ${newFeatureType} module for ${name}`,
       type: newFeatureType,
-      items: initialItems,
+      kind: newFeatureType,
+      items: [],
       formSubmissions: [],
     };
 
-    const nextFeatures = [...customFeatures, feature];
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    setCustomFeatures((current) => [...current, feature]);
     setNewFeatureName('');
     setNewFeatureDesc('');
     setShowFeatureStudio(false);
-    notify(`✨ Feature "${name}" added successfully to your website!`);
+    ntf('✨ Feature "' + name + '" added successfully to your website!');
   };
 
-  // AI Feature Copilot preset trigger
   const handleApplyPreset = (presetName: string, icon: string, type: 'table' | 'kanban' | 'form' | 'metrics' | 'notes', desc: string) => {
     setNewFeatureName(presetName);
     setNewFeatureIcon(icon);
@@ -259,46 +371,38 @@ const App: React.FC = () => {
       icon,
       description: `AI-generated feature based on prompt: "${promptText}"`,
       type: detectedType,
-      items: [
-        { id: Date.now(), title: `${title} Primary Item`, subtitle: 'High Priority', status: 'Active', value: '100', date: 'Just now' },
-        { id: Date.now() + 1, title: `${title} Workflow Item`, subtitle: 'Standard', status: 'in-progress', value: '75', date: 'Today' },
-      ],
+      kind: detectedType,
+      items: [],
       formSubmissions: [],
     };
 
-    const nextFeatures = [...customFeatures, feature];
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    const next = [...customFeatures, feature];
+    setCustomFeatures(next);
     setAiPrompt('');
     setShowFeatureStudio(false);
-    notify(`🤖 AI successfully created and injected "${title}" into your website!`);
+    ntf('🤖 AI successfully created and injected "' + title + '" into your website!');
   };
 
   const handleDeleteFeature = (featId: string) => {
-    const nextFeatures = customFeatures.filter((f) => f.id !== featId);
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
-    notify('Feature section removed.');
+    setCustomFeatures((current) => current.filter((f) => f.id !== featId));
+    ntf('Feature section removed.');
   };
 
-  // Move Kanban Card
   const handleMoveKanban = (featId: string, itemId: number, newStatus: string) => {
-    const nextFeatures = customFeatures.map((f) => {
+    const next = customFeatures.map((f) => {
       if (f.id !== featId) return f;
       return {
         ...f,
         items: f.items.map((it) => (it.id === itemId ? { ...it, status: newStatus } : it)),
       };
     });
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    setCustomFeatures(next);
   };
 
-  // Add Item to Custom Feature
   const handleAddCustomItem = (featId: string) => {
     const title = (customItemInput[featId] || '').trim();
     if (!title) return;
-    const nextFeatures = customFeatures.map((f) => {
+    const next = customFeatures.map((f) => {
       if (f.id !== featId) return f;
       const newItem: CustomFeatureItem = {
         id: Date.now(),
@@ -307,30 +411,27 @@ const App: React.FC = () => {
         subtitle: 'Custom Item',
         value: 'New',
         date: 'Just now',
+        createdAt: new Date().toLocaleDateString(),
       };
       return { ...f, items: [newItem, ...f.items] };
     });
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    setCustomFeatures(next);
     setCustomItemInput({ ...customItemInput, [featId]: '' });
   };
 
   const handleDeleteCustomItem = (featId: string, itemId: number) => {
-    const nextFeatures = customFeatures.map((f) => {
+    const next = customFeatures.map((f) => {
       if (f.id !== featId) return f;
       return { ...f, items: f.items.filter((it) => it.id !== itemId) };
     });
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    setCustomFeatures(next);
   };
 
-  // Submit Custom Form
   const handleSubmitCustomForm = (featId: string, e: React.FormEvent) => {
     e.preventDefault();
     const current = customFormValues[featId] || {};
     if (Object.keys(current).length === 0) return;
-
-    const nextFeatures = customFeatures.map((f) => {
+    const next = customFeatures.map((f) => {
       if (f.id !== featId) return f;
       const sub = {
         id: Date.now(),
@@ -339,94 +440,105 @@ const App: React.FC = () => {
       };
       return { ...f, formSubmissions: [sub, ...(f.formSubmissions || [])] };
     });
-
-    setCustomFeatures(nextFeatures);
-    saveToStorage({ features: nextFeatures });
+    setCustomFeatures(next);
     setCustomFormValues({ ...customFormValues, [featId]: {} });
-    notify('Form submission recorded successfully!');
+    ntf('Form submission recorded successfully!');
   };
 
-  // Reset to default
   const handleResetDefaults = () => {
     if (window.confirm('Reset all website edits and custom features back to default generated state?')) {
-      localStorage.removeItem('app_site_customization');
-      setAppName('Hospital Management System');
+      localStorage.removeItem(STORAGE_KEY);
+      setAppName(t('appLabel') || defaultSiteName);
       setAppSubtitle('Autonomous Web Application');
       setThemeMode('dark');
-      setAccentColor('cyan');
+      setAccentColor('#38bdf8');
       setCustomFeatures([]);
-      setRecords([
-        { id: 1, name: 'Sample Record 1', role: 'Primary Lead', createdAt: new Date().toLocaleDateString() },
-        { id: 2, name: 'Sample Record 2', role: 'Active Member', createdAt: new Date().toLocaleDateString() },
-      ]);
+      setRecs([]);
       setShowCustomizer(false);
-      notify('Website restored to original state.');
+      ntf('Website restored to original state.');
     }
   };
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setMedia((p) => [
-      ...p,
-      ...files.map((f, i) => ({ id: Date.now() + i, name: f.name, url: URL.createObjectURL(f), type: f.type })),
+    setMedia((current) => [
+      ...current,
+      ...files.map((file, i) => ({ id: Date.now() + i, name: file.name, url: URL.createObjectURL(file), type: file.type })),
     ]);
     e.target.value = '';
-    notify(`Added ${files.length} media file(s).`);
+    ntf(`Added ${files.length} media file(s).`);
+  };
+
+  const insights = () => {
+    setActive('reports');
+    document.getElementById('reports')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <div className={`app-shell theme-${accentColor} ${themeMode === 'light' ? 'light-mode' : 'dark-mode'}`}>
-      {/* Sidebar */}
+    <div className={`app-shell theme-${selectedPalette.id || 'cyan'} ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}>
+      {/* Sidebar Navigation */}
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-icon">⚡</span>
+        <a className="brand" href="#dashboard">
+          <img className="brand-icon" src={brandMark} alt="" />
           <div>
             <div className="brand-name">{appName}</div>
             <small className="brand-sub">{appSubtitle}</small>
           </div>
-        </div>
+        </a>
 
-        <nav className="nav-list">
-          <a href="#dashboard" className="active">📊 Dashboard</a>
-          <a href="#section-1">Patients</a>
-          <a href="#section-2">Doctors</a>
-          <a href="#reports-section">📈 Reports &amp; Records ({records.length})</a>
-          
-          {/* Dynamically added custom feature nav links */}
-          {customFeatures.map((f) => (
-            <a key={f.id} href={`#${f.id}`} className="custom-nav-link">
-              <span>{f.icon}</span> {f.name}
+        <nav className="nav-list" aria-label="Application navigation">
+          <a href="#dashboard" className={active === 'dashboard' ? 'active' : ''} onClick={() => setActive('dashboard')}>
+            {t('dashboard')}
+          </a>
+          <a href="#section-1" className={active === "section-1" ? "active" : ""} onClick={() => setActive("section-1")}>{"Patients"}</a>
+          <a href="#section-2" className={active === "section-2" ? "active" : ""} onClick={() => setActive("section-2")}>{"Doctors"}</a>
+          <a href="#section-3" className={active === "section-3" ? "active" : ""} onClick={() => setActive("section-3")}>{"Appointments"}</a>
+          <a href="#section-4" className={active === "section-4" ? "active" : ""} onClick={() => setActive("section-4")}>{"Billing"}</a>
+          <a href="#reports" className={active === 'reports' ? 'active' : ''} onClick={() => setActive('reports')}>
+            {t('insights')} ({recs.length})
+          </a>
+          {customFeatures.map((feature) => (
+            <a key={feature.id} href={`#${feature.id}`} className={`custom-nav-link ${active === feature.id ? 'active' : ''}`} onClick={() => setActive(feature.id)}>
+              <span>{feature.icon}</span> {feature.name}
             </a>
           ))}
-
-          <a href="#media-gallery">📁 Media Gallery</a>
-          <a href="#quick-access">🔒 Quick Access</a>
+          <a href="#media-gallery" className={active === 'media-gallery' ? 'active' : ''} onClick={() => setActive('media-gallery')}>
+            {t('mediaGallery')}
+          </a>
+          <a href="#quick-access" className={active === 'quick-access' ? 'active' : ''} onClick={() => setActive('quick-access')}>
+            {t('quickAccess')}
+          </a>
         </nav>
 
-        {/* Sidebar Actions */}
         <div className="sidebar-action-box">
-          <button type="button" onClick={() => setShowFeatureStudio(true)} className="btn-feature-add">
+          <button type="button" onClick={() => setShowFeatureStudio(true)} className="btn-feature-add btn-feature">
             ➕ Add Feature / Module
           </button>
-          <button type="button" onClick={() => setShowCustomizer(true)} className="btn-customizer">
+          <button type="button" onClick={() => setShowCustomizer(true)} className="btn-customizer btn-outline">
             🎨 Customize Website
           </button>
+          <button type="button" onClick={() => setShowAiChat(true)} className="btn-ai-chat btn-outline">
+            🤖 AI Chat
+          </button>
         </div>
+
+        <LanguageSwitcher />
 
         {user ? (
           <div className="sidebar-user">
             <span className="avatar">{user[0]?.toUpperCase()}</span>
             <div>
               <strong>{user}</strong>
-              <span className="access-badge">Full edit access</span>
+              <button type="button" className="btn-ghost" onClick={logout}>{t('signOut')}</button>
             </div>
           </div>
         ) : (
-          <p className="muted">Not signed in</p>
+          <p className="muted">{t('notSignedIn')}</p>
         )}
       </aside>
+        {showAiChat && <AiChat onClose={() => setShowAiChat(false)} />}
 
-      {/* Main Page Content */}
+      {/* Main Page Area */}
       <main className="page-content">
         <header className="topbar">
           <div>
@@ -434,50 +546,111 @@ const App: React.FC = () => {
             <p className="topbar-subtitle">{appSubtitle}</p>
           </div>
 
-          <div className="top-actions">
-            <button type="button" onClick={() => setShowFeatureStudio(true)} className="btn-glow-feature">
+          <div className="top-actions" aria-label="Quick actions">
+            {user ? (
+              <div className="topbar-user-badge">
+                <span>👤 <strong>{user}</strong></span>
+                <button type="button" onClick={logout} className="btn-xs btn-del" title="Sign Out">Sign Out</button>
+              </div>
+            ) : (
+              <a href="#quick-access" className="btn-xs btn-primary btn-outline">Sign in / Register</a>
+            )}
+            <button type="button" onClick={() => setShowAiChat(true)} className="btn-ai-chat" title="Open AI Chat Assistant" style={{ padding: '8px 14px', borderRadius: '12px' }}>
+              🤖 AI Chat
+            </button>
+            <button type="button" onClick={() => setShowFeatureStudio(true)} className="btn-glow-feature btn-feature">
               ➕ Add New Feature
             </button>
-            <button type="button" onClick={openCreate} className="btn-primary">
-              ＋ Create Record
+            <button type="button" onClick={openC} className="btn-primary">
+              ＋ Create New
             </button>
             <button type="button" onClick={() => setShowCustomizer(true)} className="btn-outline">
               🎨 Customize Site
             </button>
-            <button type="button" onClick={() => document.getElementById('media-upload-input')?.click()} className="btn-ghost">
+            <button type="button" onClick={() => document.getElementById('media-upload')?.click()} className="btn-ghost btn-outline">
               📎 Add Media
             </button>
-            <input id="media-upload-input" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt" onChange={handleMediaChange} hidden />
+            <input id="media-upload" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt,.md" onChange={handleMediaChange} hidden />
+            <a href="#reports" onClick={insights} className="btn-ghost btn-outline">
+              Reports &amp; Insights
+            </a>
           </div>
         </header>
 
-        {message && <div className="banner toast-banner">{message}</div>}
+        {msg && <div className="banner toast-banner">{msg}</div>}
+        {storageError && <p className="form-error" role="alert">Browser storage: {storageError}</p>}
 
-        {/* Section 0: Dashboard */}
+        {/* Domain Hero Welcome Banner: dynamically themed to the input domain */}
+        <div className="domain-hero-banner">
+          <div className="domain-hero-left">
+            <div className="domain-hero-badge">Healthcare & Clinical Management</div>
+            <h2 className="domain-hero-title">{appName} Workspace</h2>
+            <p className="domain-hero-desc">Coordinated Patient Care, Medical Staff & Hospital Workflows</p>
+            <div className="domain-hero-actions">
+              <button type="button" className="btn-primary" onClick={openC}>＋ Add Patient</button>
+              <a className="btn-outline" href={modules[0]?.href || '#dashboard'}>Explore modules</a>
+            </div>
+          </div>
+          <div className="domain-hero-visual">
+            <img className="domain-hero-image" src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1000&q=85" alt="Doctors caring for a patient in a modern hospital" loading="lazy" />
+            <img className="domain-hero-image" src="https://images.unsplash.com/photo-1587745416684-47953f16f02f?auto=format&fit=crop&w=700&q=85" alt="Emergency ambulance ready for hospital transport" loading="lazy" />
+          </div>
+          <div className="domain-hero-stats">
+            <div className="domain-stat-card">
+              <strong className="domain-stat-val">
+                {databaseCounts ? (databaseCounts.total ?? Object.values(databaseCounts).reduce((sum, count) => sum + count, 0)) : Object.values(entityCounts).reduce((sum, count) => sum + count, 0) + recs.length}
+              </strong>
+              <span className="domain-stat-lbl">{databaseCounts ? 'Database records' : 'Total Records'}</span>
+              <small className="muted text-xs">Records saved in this browser</small>
+            </div>
+            <div className="domain-stat-card">
+              <strong className="domain-stat-val">{Object.keys(entityCounts).length + customFeatures.length}</strong>
+              <span className="domain-stat-lbl">Modules</span>
+              <small className="muted text-xs">Application modules</small>
+            </div>
+            <div className="domain-stat-card">
+              <strong className="domain-stat-val">{user ? 'Active' : 'Guest'}</strong>
+              <span className="domain-stat-lbl">Auth Status</span>
+              <small className="muted text-xs">Session</small>
+            </div>
+          </div>
+        </div>
+
+        {databaseCountError && <p className="muted" role="status">Database counts are unavailable: {databaseCountError}</p>}
+
+        {/* Dashboard Section */}
         <section id="dashboard" className="content-block">
-          <Dashboard records={records} />
+          <Dashboard records={recs} entityCounts={databaseCounts ?? entityCounts} databaseCountError={databaseCountError} countsSource={databaseCounts ? 'database' : 'browser'} />
         </section>
 
-        {/* Section 1 & 2 */}
-        <section id="section-1" className="content-block grid-block">
-          <div>
-            <SectionOne />
-          </div>
-          <div>
-            <SectionTwo />
-          </div>
-        </section>
+        {/* Resource Module Sections */}
+        <section id="section-1" className="content-block"><Patients onCountChange={(count) => setEntityCounts((current) => ({ ...current, 'patients': count }))} /></section>
+        <section id="section-2" className="content-block"><Doctors onCountChange={(count) => setEntityCounts((current) => ({ ...current, 'doctors': count }))} /></section>
+        <section id="section-3" className="content-block"><Appointments onCountChange={(count) => setEntityCounts((current) => ({ ...current, 'appointments': count }))} /></section>
+        <section id="section-4" className="content-block"><Billing onCountChange={(count) => setEntityCounts((current) => ({ ...current, 'billings': count }))} /></section>
 
-        {/* Main Records & Reports Section */}
-        <section id="reports-section" className="content-block">
+        {/* Reports & Insights Section */}
+        <section id="reports" className="content-block report-block insights-section">
           <div className="section-head-row">
             <div>
-              <h2>Reports &amp; Data Records</h2>
-              <p className="muted">Manage and edit records directly in this workspace.</p>
+              <p className="eyebrow">Workspace activity</p>
+              <h2>Reports &amp; Insights</h2>
+              <p className="muted">{t('insightsSubtitle')}</p>
             </div>
-            <button type="button" onClick={openCreate} className="btn-sm btn-primary">
-              ＋ Add Record
-            </button>
+            <div className="action-btn-group">
+              <label className="search-field">Search records
+                <input
+                  type="search"
+                  value={reportSearch}
+                  onChange={(e) => setReportSearch(e.target.value)}
+                  placeholder="Search name, category, or status"
+                  className="input-sm"
+                />
+              </label>
+              <button type="button" onClick={openC} className="btn-sm btn-primary">
+                ＋ {t('createNew')}
+              </button>
+            </div>
           </div>
 
           <div className="table-wrap">
@@ -485,33 +658,31 @@ const App: React.FC = () => {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Name</th>
-                  <th>Role / Category</th>
-                  <th>Created</th>
+                  <th>Patients</th>
+                  <th>Category</th>
+                  <th>Detail / Metric</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {records.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="muted text-center py-4">
-                      No records yet. Click "Create Record" above to add one.
-                    </td>
-                  </tr>
+                {reportRecords.length === 0 ? (
+                  <tr><td colSpan={6} className="muted text-center py-4">{recs.length === 0 ? t('noRecords') : 'No matching records found.'}</td></tr>
                 ) : (
-                  records.map((r, index) => (
+                  reportRecords.map((r, i) => (
                     <tr key={r.id}>
-                      <td>{index + 1}</td>
+                      <td>{i + 1}</td>
                       <td><strong>{r.name}</strong></td>
-                      <td><span className="badge-pill">{r.role}</span></td>
-                      <td>{r.createdAt}</td>
+                      <td><span className="badge-pill">{r.field2}</span></td>
+                      <td>{r.field3}</td>
+                      <td><span className="status-pill status-active">Active</span></td>
                       <td>
                         <div className="action-btn-group">
                           <button type="button" onClick={() => openEdit(r)} className="btn-sm btn-edit" title="Edit this record">
                             ✏️ Edit
                           </button>
-                          <button type="button" onClick={() => handleDeleteRecord(r.id)} className="btn-sm btn-del" title="Delete this record">
-                            🗑 Delete
+                          <button type="button" onClick={() => handleDeleteRecord(r.id)} className="btn-sm btn-del" title="Delete record">
+                            🗑
                           </button>
                         </div>
                       </td>
@@ -523,119 +694,73 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Dynamically Rendered In-Website Custom Features */}
-        {customFeatures.map((feat) => (
+        {/* Dynamic User Custom Feature Sections */}
+        {customFeatures.map((feature) => {
+          const feat = feature;
+          return (
           <section key={feat.id} id={feat.id} className="content-block custom-feature-section">
             <div className="section-head-row">
               <div className="feat-title-group">
                 <span className="feat-large-icon">{feat.icon}</span>
                 <div>
+                  <p className="eyebrow">Custom module · {feat.type}</p>
                   <h2>{feat.name}</h2>
-                  <p className="muted">{feat.description} • <em>{feat.type.toUpperCase()} Module</em></p>
+                  <p className="muted">{feat.description}</p>
                 </div>
               </div>
-
-              <div className="feat-header-actions">
-                <button type="button" onClick={() => handleDeleteFeature(feat.id)} className="btn-sm btn-del" title="Remove this feature module">
+              <div className="action-btn-group">
+                <button type="button" onClick={() => { setEditFeat(feat); setEditFeatName(feat.name); setEditFeatDesc(feat.description); setEditFeatIcon(feat.icon); }} className="btn-sm btn-edit" title="Edit module">
+                  ✏️ Edit Module
+                </button>
+                <button type="button" onClick={() => handleDeleteFeature(feat.id)} className="btn-sm btn-del" title="Remove entire module">
                   🗑 Remove Module
                 </button>
               </div>
             </div>
 
-            {/* Feature Type: KANBAN WORKFLOW */}
             {feat.type === 'kanban' && (
               <div className="kanban-container">
                 <div className="kanban-add-bar">
                   <input
                     type="text"
-                    placeholder={`Add new task to ${feat.name}...`}
+                    placeholder={`Add task to ${feat.name}...`}
                     value={customItemInput[feat.id] || ''}
                     onChange={(e) => setCustomItemInput({ ...customItemInput, [feat.id]: e.target.value })}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomItem(feat.id); }}
                     className="input-sm"
                   />
-                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-sm btn-primary">
-                    ＋ Add Card
-                  </button>
+                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-sm btn-primary">＋ Add Card</button>
                 </div>
-
                 <div className="kanban-board">
-                  {/* Column 1: To Do */}
                   <div className="kanban-col">
-                    <div className="kanban-col-head col-todo">
-                      <span>📋 To Do</span>
-                      <span className="col-count">{feat.items.filter((i) => i.status === 'todo').length}</span>
-                    </div>
+                    <div className="kanban-col-head"><span>📋 To Do</span><span className="col-count">{feat.items.filter((i) => i.status === 'todo').length}</span></div>
                     <div className="kanban-col-body">
-                      {feat.items.filter((i) => i.status === 'todo').map((item) => (
-                        <div key={item.id} className="kanban-card">
-                          <div className="kanban-card-title">{item.title}</div>
-                          <div className="kanban-card-meta">
-                            <small>{item.date}</small>
-                            <div className="kanban-card-btns">
-                              <button type="button" onClick={() => handleMoveKanban(feat.id, item.id, 'in-progress')} title="Move to In Progress">
-                                → In Progress
-                              </button>
-                              <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="text-danger">
-                                ✕
-                              </button>
-                            </div>
-                          </div>
+                      {feat.items.filter((i) => i.status === 'todo').map((it) => (
+                        <div key={it.id} className="kanban-card">
+                          <div className="kanban-card-title">{it.title}</div>
+                          <div className="kanban-card-meta"><small>{it.date}</small><div className="kanban-card-btns"><button type="button" onClick={() => handleMoveKanban(feat.id, it.id, 'in-progress')}>→ In Progress</button><button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="text-danger">✕</button></div></div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Column 2: In Progress */}
                   <div className="kanban-col">
-                    <div className="kanban-col-head col-progress">
-                      <span>⚡ In Progress</span>
-                      <span className="col-count">{feat.items.filter((i) => i.status === 'in-progress').length}</span>
-                    </div>
+                    <div className="kanban-col-head"><span>⚡ In Progress</span><span className="col-count">{feat.items.filter((i) => i.status === 'in-progress').length}</span></div>
                     <div className="kanban-col-body">
-                      {feat.items.filter((i) => i.status === 'in-progress').map((item) => (
-                        <div key={item.id} className="kanban-card in-progress">
-                          <div className="kanban-card-title">{item.title}</div>
-                          <div className="kanban-card-meta">
-                            <small>{item.date}</small>
-                            <div className="kanban-card-btns">
-                              <button type="button" onClick={() => handleMoveKanban(feat.id, item.id, 'todo')}>
-                                ← Back
-                              </button>
-                              <button type="button" onClick={() => handleMoveKanban(feat.id, item.id, 'done')} className="btn-done">
-                                ✓ Done
-                              </button>
-                              <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="text-danger">
-                                ✕
-                              </button>
-                            </div>
-                          </div>
+                      {feat.items.filter((i) => i.status === 'in-progress').map((it) => (
+                        <div key={it.id} className="kanban-card in-progress">
+                          <div className="kanban-card-title">{it.title}</div>
+                          <div className="kanban-card-meta"><small>{it.date}</small><div className="kanban-card-btns"><button type="button" onClick={() => handleMoveKanban(feat.id, it.id, 'todo')}>← Back</button><button type="button" onClick={() => handleMoveKanban(feat.id, it.id, 'done')} className="btn-done">✓ Done</button><button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="text-danger">✕</button></div></div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Column 3: Done */}
                   <div className="kanban-col">
-                    <div className="kanban-col-head col-done">
-                      <span>✅ Completed</span>
-                      <span className="col-count">{feat.items.filter((i) => i.status === 'done').length}</span>
-                    </div>
+                    <div className="kanban-col-head"><span>✅ Completed</span><span className="col-count">{feat.items.filter((i) => i.status === 'done').length}</span></div>
                     <div className="kanban-col-body">
-                      {feat.items.filter((i) => i.status === 'done').map((item) => (
-                        <div key={item.id} className="kanban-card done">
-                          <div className="kanban-card-title"><s>{item.title}</s></div>
-                          <div className="kanban-card-meta">
-                            <small>{item.date}</small>
-                            <div className="kanban-card-btns">
-                              <button type="button" onClick={() => handleMoveKanban(feat.id, item.id, 'in-progress')}>
-                                ← Reopen
-                              </button>
-                              <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="text-danger">
-                                ✕
-                              </button>
-                            </div>
-                          </div>
+                      {feat.items.filter((i) => i.status === 'done').map((it) => (
+                        <div key={it.id} className="kanban-card done">
+                          <div className="kanban-card-title"><s>{it.title}</s></div>
+                          <div className="kanban-card-meta"><small>{it.date}</small><div className="kanban-card-btns"><button type="button" onClick={() => handleMoveKanban(feat.id, it.id, 'in-progress')}>← Reopen</button><button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="text-danger">✕</button></div></div>
                         </div>
                       ))}
                     </div>
@@ -644,7 +769,6 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Feature Type: DATA TABLE */}
             {feat.type === 'table' && (
               <div className="custom-table-container">
                 <div className="custom-table-add-bar">
@@ -656,39 +780,22 @@ const App: React.FC = () => {
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomItem(feat.id); }}
                     className="input-sm"
                   />
-                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-sm btn-primary">
-                    ＋ Add Item
-                  </button>
+                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-sm btn-primary">＋ Add Item</button>
                 </div>
-
                 <div className="table-wrap">
                   <table>
-                    <thead>
-                      <tr>
-                        <th>Item Name</th>
-                        <th>Category</th>
-                        <th>Status</th>
-                        <th>Timestamp</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th>Item Name</th><th>Category</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
                     <tbody>
                       {feat.items.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="muted text-center py-3">No items yet. Type above and click Add Item.</td>
-                        </tr>
+                        <tr><td colSpan={5} className="muted text-center py-3">No items yet. Type above and click Add Item.</td></tr>
                       ) : (
-                        feat.items.map((item) => (
-                          <tr key={item.id}>
-                            <td><strong>{item.title}</strong></td>
-                            <td><span className="badge-pill">{item.subtitle || 'Primary'}</span></td>
-                            <td><span className="status-pill status-active">{item.status || 'Active'}</span></td>
-                            <td>{item.date}</td>
-                            <td>
-                              <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="btn-sm btn-del">
-                                🗑 Delete
-                              </button>
-                            </td>
+                        feat.items.map((it) => (
+                          <tr key={it.id}>
+                            <td><strong>{it.title}</strong></td>
+                            <td><span className="badge-pill">{it.subtitle || 'General'}</span></td>
+                            <td><span className="status-pill status-active">{it.status || 'Active'}</span></td>
+                            <td>{it.date}</td>
+                            <td><button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="btn-sm btn-del">🗑</button></td>
                           </tr>
                         ))
                       )}
@@ -698,68 +805,26 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Feature Type: INTERACTIVE FORM & FEEDBACK */}
             {feat.type === 'form' && (
               <div className="custom-form-container">
                 <form onSubmit={(e) => handleSubmitCustomForm(feat.id, e)} className="custom-form-panel">
-                  <h3>Submit New Entry to {feat.name}</h3>
+                  <h3>Submit Entry to {feat.name}</h3>
                   <div className="form-row-2">
-                    <label>
-                      Name / Title
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. John Doe"
-                        value={customFormValues[feat.id]?.name || ''}
-                        onChange={(e) => setCustomFormValues({
-                          ...customFormValues,
-                          [feat.id]: { ...(customFormValues[feat.id] || {}), name: e.target.value },
-                        })}
-                      />
-                    </label>
-                    <label>
-                      Category / Topic
-                      <input
-                        type="text"
-                        placeholder="e.g. Customer Support"
-                        value={customFormValues[feat.id]?.category || ''}
-                        onChange={(e) => setCustomFormValues({
-                          ...customFormValues,
-                          [feat.id]: { ...(customFormValues[feat.id] || {}), category: e.target.value },
-                        })}
-                      />
-                    </label>
+                    <label>Name / Title<input type="text" required placeholder="e.g. John Doe" value={customFormValues[feat.id]?.name || ''} onChange={(e) => setCustomFormValues({ ...customFormValues, [feat.id]: { ...(customFormValues[feat.id] || {}), name: e.target.value } })} /></label>
+                    <label>Category<input type="text" placeholder="e.g. Support" value={customFormValues[feat.id]?.category || ''} onChange={(e) => setCustomFormValues({ ...customFormValues, [feat.id]: { ...(customFormValues[feat.id] || {}), category: e.target.value } })} /></label>
                   </div>
-                  <label>
-                    Details / Feedback Message
-                    <textarea
-                      rows={3}
-                      required
-                      placeholder="Enter details or notes..."
-                      value={customFormValues[feat.id]?.details || ''}
-                      onChange={(e) => setCustomFormValues({
-                        ...customFormValues,
-                        [feat.id]: { ...(customFormValues[feat.id] || {}), details: e.target.value },
-                      })}
-                    />
-                  </label>
-                  <button type="submit" className="btn-primary">
-                    📤 Submit Entry
-                  </button>
+                  <label>Details / Message<textarea rows={3} required placeholder="Enter message or request..." value={customFormValues[feat.id]?.details || ''} onChange={(e) => setCustomFormValues({ ...customFormValues, [feat.id]: { ...(customFormValues[feat.id] || {}), details: e.target.value } })} /></label>
+                  <button type="submit" className="btn-primary">📤 Submit Entry</button>
                 </form>
-
                 <div className="custom-submissions-panel">
-                  <h3>Recent Submissions ({(feat.formSubmissions || []).length})</h3>
+                  <h3>Submissions ({(feat.formSubmissions || []).length})</h3>
                   {(feat.formSubmissions || []).length === 0 ? (
-                    <p className="muted">No submissions recorded yet. Fill out the form above.</p>
+                    <p className="muted">No submissions yet. Use the form above to record entries.</p>
                   ) : (
                     <ul className="submissions-list">
                       {(feat.formSubmissions || []).map((sub) => (
                         <li key={sub.id} className="submission-card">
-                          <div>
-                            <strong>{sub.data.name || 'Submission'}</strong> — <span className="badge-pill">{sub.data.category || 'General'}</span>
-                            <p className="submission-text">{sub.data.details}</p>
-                          </div>
+                          <div><strong>{sub.data.name || 'Entry'}</strong> — <span className="badge-pill">{sub.data.category || 'General'}</span><p className="submission-text">{sub.data.details}</p></div>
                           <small className="muted">{sub.date}</small>
                         </li>
                       ))}
@@ -769,202 +834,149 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Feature Type: METRICS & KPI */}
             {feat.type === 'metrics' && (
-              <div className="custom-metrics-container">
-                <div className="dashboard-grid">
-                  {feat.items.map((item) => (
-                    <div key={item.id} className="dashboard-card feat-metric-card">
-                      <span className="stat-label">{item.title}</span>
-                      <strong>{item.value || '100%'}</strong>
-                      <small className="stat-sub">{item.subtitle}</small>
-                      <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="btn-del-corner" title="Remove metric">✕</button>
-                    </div>
-                  ))}
-                </div>
+              <div className="dashboard-grid">
+                {feat.items.map((it) => (
+                  <div key={it.id} className="dashboard-card feat-metric-card">
+                    <span className="stat-label">{it.title}</span>
+                    <strong>{it.value || '100%'}</strong>
+                    <small className="stat-sub">{it.subtitle}</small>
+                    <button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="btn-del-corner">✕</button>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Feature Type: NOTES & SCRATCHPAD */}
             {feat.type === 'notes' && (
               <div className="custom-notes-container">
                 <div className="notes-add-row">
-                  <input
-                    type="text"
-                    placeholder="Write a quick note or key insight..."
-                    value={customItemInput[feat.id] || ''}
-                    onChange={(e) => setCustomItemInput({ ...customItemInput, [feat.id]: e.target.value })}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomItem(feat.id); }}
-                  />
-                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-primary">
-                    📝 Post Note
-                  </button>
+                  <input type="text" placeholder="Write a quick note..." value={customItemInput[feat.id] || ''} onChange={(e) => setCustomItemInput({ ...customItemInput, [feat.id]: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomItem(feat.id); }} />
+                  <button type="button" onClick={() => handleAddCustomItem(feat.id)} className="btn-primary">📝 Post Note</button>
                 </div>
                 <div className="notes-grid">
-                  {feat.items.map((item) => (
-                    <div key={item.id} className="note-card">
-                      <p className="note-body">{item.title}</p>
-                      <div className="note-footer">
-                        <small>{item.date}</small>
-                        <button type="button" onClick={() => handleDeleteCustomItem(feat.id, item.id)} className="btn-del-sm">✕</button>
-                      </div>
+                  {feat.items.map((it) => (
+                    <div key={it.id} className="note-card">
+                      <p className="note-body">{it.title}</p>
+                      <div className="note-footer"><small>{it.date}</small><button type="button" onClick={() => handleDeleteCustomItem(feat.id, it.id)} className="btn-del-sm">✕</button></div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </section>
-        ))}
+        ); })}
 
-        {/* Media Gallery */}
+        {/* Media Gallery Section */}
         <section id="media-gallery" className="content-block">
-          <h2>Media Gallery</h2>
+          <div className="section-head-row">
+            <div>
+              <p className="eyebrow">Workspace files</p>
+              <h2>Media gallery</h2>
+              <p className="muted">Files you add are shown for this browser session.</p>
+            </div>
+            <label className="btn-outline upload-label" htmlFor="media-upload">＋ Add Media</label>
+          </div>
           {media.length === 0 ? (
-            <p className="muted">No media items uploaded yet. Click "Add Media" in the top bar.</p>
+            <p className="muted empty-state">No media files added yet. Choose a file to build this gallery.</p>
           ) : (
             <div className="media-grid">
-              {media.map((item) => {
-                const isImg = item.type.startsWith('image/');
-                const isVid = item.type.startsWith('video/');
-                return (
-                  <div key={item.id} className="media-card">
-                    {isImg ? (
-                      <img src={item.url} alt={item.name} className="media-image" />
-                    ) : isVid ? (
-                      <video src={item.url} controls className="media-video" />
-                    ) : (
-                      <div className="media-file">
-                        <span className="media-icon">📄</span>
-                        <span>{item.name}</span>
-                      </div>
-                    )}
+              {media.map((item) => (
+                <article key={item.id} className="media-card media-item">
+                  {item.type.startsWith('image/') ? (
+                    <img src={item.url} alt={item.name} className="media-image" />
+                  ) : item.type.startsWith('video/') ? (
+                    <video src={item.url} controls className="media-video" />
+                  ) : (
+                    <div className="media-file"><span className="media-icon">📄</span><span>{item.name}</span></div>
+                  )}
+                  <div>
+                    <strong>{item.name}</strong>
+                    <button type="button" onClick={() => setMedia(media.filter((m) => m.id !== item.id))} className="btn-sm btn-del">Remove</button>
                   </div>
-                );
-              })}
+                </article>
+              ))}
             </div>
           )}
         </section>
 
-        {/* Quick Access */}
-        <section id="quick-access" className="content-block">
+        {/* Quick Access Section */}
+        <section id="quick-access" className="content-block auth-block">
           <div className="panel">
-            <h2>Quick Access</h2>
-            <p className="muted signed-in-msg">
-              ✅ Open workspace. You have full edit access to this site.
-            </p>
+            <h2>{t('quickAccess')}</h2>
+            {user ? (
+              <p className="muted signed-in-msg">{t('signedInMsg').replace('{user}', user)}</p>
+            ) : (
+              <Login onLogin={login} onSignIn={login} />
+            )}
           </div>
         </section>
       </main>
 
-      {/* MODAL 1: Create New Record */}
+      {/* MODAL 1: Create Record */}
       {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <form className="modal" onSubmit={handleCreate} onClick={(e) => e.stopPropagation()}>
-            <h2>Create New Record</h2>
-            <label>
-              Name / Title
-              <input
-                autoFocus
-                type="text"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="e.g. Alex Johnson"
-                required
-              />
+        <div className="modal-overlay modal-backdrop" onClick={() => setShowCreate(false)}>
+          <form className="modal modal-card" onSubmit={create} onClick={(e) => e.stopPropagation()}>
+            <h2>{t('createRecord')}</h2>
+            <label htmlFor="record-name">Patients Name *
+              <input id="record-name" autoFocus type="text" value={cN} onChange={(e) => setCN(e.target.value)} placeholder="Enter title/name" required />
             </label>
-            <label>
-              Role / Category / Department
-              <input
-                type="text"
-                value={createRole}
-                onChange={(e) => setCreateRole(e.target.value)}
-                placeholder="e.g. Lead Doctor, Active Student, Admin..."
-              />
+            <label>Category
+              <input type="text" value={c2} onChange={(e) => setC2(e.target.value)} placeholder="Enter category" />
             </label>
-            <div className="modal-actions">
-              <button type="button" className="btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button type="submit" className="btn-primary">Create Record</button>
+            <label>Detail / Metric
+              <input type="text" value={c3} onChange={(e) => setC3(e.target.value)} placeholder="Enter detail or metric" />
+            </label>
+            <div className="modal-actions form-actions">
+              <button type="button" className="btn-ghost btn-outline" onClick={() => setShowCreate(false)}>{t('cancel')}</button>
+              <button type="submit" className="btn-primary">{t('create')}</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* MODAL 2: Edit Existing Record */}
+      {/* MODAL 2: Edit Record */}
       {editRecord && (
-        <div className="modal-overlay" onClick={() => setEditRecord(null)}>
-          <form className="modal" onSubmit={handleSaveEdit} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay modal-backdrop" onClick={() => setEditRecord(null)}>
+          <form className="modal modal-card" onSubmit={handleSaveEdit} onClick={(e) => e.stopPropagation()}>
             <h2>✏️ Edit Record #{editRecord.id.toString().slice(-4)}</h2>
-            <label>
-              Name / Title
-              <input
-                autoFocus
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                required
-              />
+            <label>Name / Title
+              <input autoFocus type="text" value={eN} onChange={(e) => setEN(e.target.value)} required />
             </label>
-            <label>
-              Role / Category / Details
-              <input
-                type="text"
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value)}
-              />
+            <label>Category
+              <input type="text" value={e2} onChange={(e) => setE2(e.target.value)} />
             </label>
-            <div className="modal-actions">
-              <button type="button" className="btn-ghost" onClick={() => setEditRecord(null)}>Cancel</button>
+            <label>Detail / Metric
+              <input type="text" value={e3} onChange={(e) => setE3(e.target.value)} />
+            </label>
+            <div className="modal-actions form-actions">
+              <button type="button" className="btn-ghost btn-outline" onClick={() => setEditRecord(null)}>{t('cancel')}</button>
               <button type="submit" className="btn-primary">Save Changes</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* MODAL 3: In-Website Feature Studio (Add Custom Feature / AI Copilot) */}
+      {/* MODAL 3: In-Website Feature Studio */}
       {showFeatureStudio && (
-        <div className="modal-overlay" onClick={() => setShowFeatureStudio(false)}>
-          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay modal-backdrop" onClick={() => setShowFeatureStudio(false)}>
+          <div className="modal modal-lg modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-tabs">
-              <h2>➕ Feature Studio: Add New Feature to Website</h2>
+              <p className="eyebrow">Extend your workspace</p>
+              <h2>➕ Feature Studio: Add a feature module</h2>
               <div className="modal-tabs">
-                <button
-                  type="button"
-                  onClick={() => setFeatureTab('builder')}
-                  className={`modal-tab-btn ${featureTab === 'builder' ? 'active' : ''}`}
-                >
-                  🛠 Feature Builder
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFeatureTab('ai')}
-                  className={`modal-tab-btn ${featureTab === 'ai' ? 'active' : ''}`}
-                >
-                  🤖 AI Feature Copilot
-                </button>
+                <button type="button" onClick={() => setFeatureTab('builder')} className={`modal-tab-btn ${featureTab === 'builder' ? 'active' : ''}`}>🛠 Feature Builder</button>
+                <button type="button" onClick={() => setFeatureTab('ai')} className={`modal-tab-btn ${featureTab === 'ai' ? 'active' : ''}`}>🤖 AI Feature Copilot</button>
               </div>
             </div>
 
             {featureTab === 'builder' ? (
               <form onSubmit={handleAddFeature}>
                 <div className="form-row-2">
-                  <label>
-                    Feature Title / Name
-                    <input
-                      autoFocus
-                      type="text"
-                      required
-                      placeholder="e.g. Doctor Rosters, Invoices, Feedback..."
-                      value={newFeatureName}
-                      onChange={(e) => setNewFeatureName(e.target.value)}
-                    />
+                  <label htmlFor="feature-name">Module name
+                    <input id="feature-name" autoFocus type="text" required placeholder="e.g. Invoices, Roster, Maintenance..." value={newFeatureName} onChange={(e) => setNewFeatureName(e.target.value)} />
                   </label>
-                  <label>
-                    Feature Type
-                    <select
-                      value={newFeatureType}
-                      onChange={(e) => setNewFeatureType(e.target.value as any)}
-                      className="input-select"
-                    >
+                  <label htmlFor="feature-kind">Module format
+                    <select id="feature-kind" value={newFeatureType} onChange={(e) => setNewFeatureType(e.target.value as any)} className="input-select">
                       <option value="table">📋 Data Table / Records Manager</option>
                       <option value="kanban">📌 Kanban Workflow Board</option>
                       <option value="form">📝 Form &amp; Feedback Collector</option>
@@ -973,96 +985,40 @@ const App: React.FC = () => {
                     </select>
                   </label>
                 </div>
-
                 <div className="form-row-2">
-                  <label>
-                    Choose Icon
+                  <label>Choose Icon
                     <div className="icon-picker">
                       {['⚡', '📊', '📝', '💰', '📅', '👥', '🛒', '⚙️', '🎯', '🚀', '💬', '📦', '🏥', '🎓', '🛠️'].map((ic) => (
-                        <button
-                          key={ic}
-                          type="button"
-                          onClick={() => setNewFeatureIcon(ic)}
-                          className={`icon-btn ${newFeatureIcon === ic ? 'selected' : ''}`}
-                        >
-                          {ic}
-                        </button>
+                        <button key={ic} type="button" onClick={() => setNewFeatureIcon(ic)} className={`icon-btn ${newFeatureIcon === ic ? 'selected' : ''}`}>{ic}</button>
                       ))}
                     </div>
                   </label>
-
-                  <label>
-                    Description / Purpose
-                    <input
-                      type="text"
-                      placeholder="Brief note about this feature..."
-                      value={newFeatureDesc}
-                      onChange={(e) => setNewFeatureDesc(e.target.value)}
-                    />
+                  <label htmlFor="feature-description">Description
+                    <input id="feature-description" type="text" placeholder="What will this module help manage?" value={newFeatureDesc} onChange={(e) => setNewFeatureDesc(e.target.value)} />
                   </label>
                 </div>
-
-                <div className="modal-actions">
-                  <button type="button" className="btn-ghost" onClick={() => setShowFeatureStudio(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary">✨ Add Feature to Website</button>
+                <div className="modal-actions form-actions">
+                  <button type="button" className="btn-ghost btn-outline" onClick={() => setShowFeatureStudio(false)}>{t('cancel')}</button>
+                  <button type="submit" className="btn-primary">Add module</button>
                 </div>
               </form>
             ) : (
               <div className="ai-feature-copilot">
-                <p className="muted">Type what feature you want to add, or choose a 1-click popular preset:</p>
+                <p className="muted">Choose a 1-click popular preset, or type what feature you need:</p>
                 <div className="preset-grid">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPreset('Invoice & Payment Tracker', '💰', 'table', 'Track billing, transactions, and client payment invoices')}
-                    className="preset-chip"
-                  >
-                    💰 Invoice &amp; Payment Tracker
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPreset('Appointment / Roster Board', '📅', 'kanban', 'Manage scheduled shifts, patient visits, or bookings')}
-                    className="preset-chip"
-                  >
-                    📅 Appointment / Roster Board
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPreset('Customer Feedback Collector', '📝', 'form', 'Collect reviews, inquiries, and customer feedback')}
-                    className="preset-chip"
-                  >
-                    📝 Customer Feedback Collector
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPreset('Live KPI & Performance Metrics', '📈', 'metrics', 'Display key operational metrics and revenue gauges')}
-                    className="preset-chip"
-                  >
-                    📈 Live KPI &amp; Performance Metrics
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyPreset('Task & Sprint Kanban', '📋', 'kanban', 'To Do, In Progress, and Completed sprint task cards')}
-                    className="preset-chip"
-                  >
-                    📋 Task &amp; Sprint Kanban
-                  </button>
+                  <button type="button" onClick={() => handleApplyPreset('Invoice & Payment Tracker', '💰', 'table', 'Track billing, transactions, and client payment invoices')} className="preset-chip">💰 Invoice &amp; Payment Tracker</button>
+                  <button type="button" onClick={() => handleApplyPreset('Appointment / Roster Board', '📅', 'kanban', 'Manage scheduled shifts, patient visits, or bookings')} className="preset-chip">📅 Appointment / Roster Board</button>
+                  <button type="button" onClick={() => handleApplyPreset('Customer Feedback Collector', '📝', 'form', 'Collect reviews, inquiries, and customer feedback')} className="preset-chip">📝 Customer Feedback Collector</button>
+                  <button type="button" onClick={() => handleApplyPreset('Live KPI & Performance Metrics', '📈', 'metrics', 'Display key operational metrics and revenue gauges')} className="preset-chip">📈 Live KPI &amp; Performance Metrics</button>
+                  <button type="button" onClick={() => handleApplyPreset('Task & Sprint Kanban', '📋', 'kanban', 'To Do, In Progress, and Completed sprint task cards')} className="preset-chip">📋 Task &amp; Sprint Kanban</button>
                 </div>
-
                 <div className="ai-prompt-box">
-                  <label>
-                    Custom Prompt for AI Feature Generator
-                    <textarea
-                      rows={3}
-                      placeholder="e.g. Add an employee clock-in tracker with shift status and attendance timestamps..."
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                    />
+                  <label>Custom Prompt for AI Feature Generator
+                    <textarea rows={3} placeholder="e.g. Add a staff schedule planner with shifts and timestamps..." value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
                   </label>
-                  <div className="modal-actions">
-                    <button type="button" className="btn-ghost" onClick={() => setShowFeatureStudio(false)}>Cancel</button>
-                    <button type="button" onClick={handleAiGenerateFeature} className="btn-primary btn-glow">
-                      ⚡ Generate &amp; Add Feature
-                    </button>
+                  <div className="modal-actions form-actions">
+                    <button type="button" className="btn-ghost btn-outline" onClick={() => setShowFeatureStudio(false)}>{t('cancel')}</button>
+                    <button type="button" onClick={handleAiGenerateFeature} className="btn-primary btn-glow">⚡ Generate &amp; Add Feature</button>
                   </div>
                 </div>
               </div>
@@ -1073,104 +1029,70 @@ const App: React.FC = () => {
 
       {/* MODAL 4: Website Customizer & Theme Studio */}
       {showCustomizer && (
-        <div className="modal-overlay" onClick={() => setShowCustomizer(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>🎨 Website &amp; Theme Customizer</h2>
-            <label>
-              Website / Brand Name
-              <input
-                type="text"
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-                placeholder="e.g. Apex Health Portal"
-              />
+        <div className="modal-overlay modal-backdrop" onClick={() => setShowCustomizer(false)}>
+          <div className="modal modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="customizer-title">
+            <p className="eyebrow">Personalize this workspace</p>
+            <h2 id="customizer-title">Website &amp; Theme Customizer</h2>
+            <label htmlFor="site-name">Brand name
+              <input id="site-name" type="text" value={appName} onChange={(e) => setAppName(e.target.value)} placeholder="e.g. Apex Health Portal" />
             </label>
-
-            <label>
-              Tagline / Subtitle
-              <input
-                type="text"
-                value={appSubtitle}
-                onChange={(e) => setAppSubtitle(e.target.value)}
-                placeholder="e.g. Next-Gen Enterprise Solution"
-              />
+            <label htmlFor="site-tagline">Tagline
+              <input id="site-tagline" type="text" value={appSubtitle} onChange={(e) => setAppSubtitle(e.target.value)} placeholder="e.g. Next-Gen Enterprise Solution" />
             </label>
-
-            <label>
-              Accent Color Palette
+            <fieldset className="palette-picker">
+              <legend>Accent palette</legend>
               <div className="palette-grid">
-                {[
-                  { id: 'cyan', label: 'Cyber Cyan', color: '#38bdf8' },
-                  { id: 'indigo', label: 'Royal Indigo', color: '#6366f1' },
-                  { id: 'emerald', label: 'Emerald Mint', color: '#10b981' },
-                  { id: 'amber', label: 'Sunset Amber', color: '#f59e0b' },
-                  { id: 'rose', label: 'Rose Coral', color: '#f43f5e' },
-                  { id: 'purple', label: 'Neon Purple', color: '#a855f7' },
-                ].map((c) => (
+                {palettes.map((palette) => (
                   <button
-                    key={c.id}
+                    key={palette.value}
                     type="button"
-                    onClick={() => setAccentColor(c.id)}
-                    className={`color-swatch ${accentColor === c.id ? 'selected' : ''}`}
-                    style={{ backgroundColor: c.color }}
-                    title={c.label}
+                    onClick={() => setAccentColor(palette.value)}
+                    className={`palette-swatch color-swatch ${accentColor === palette.value ? 'selected' : ''}`}
+                    style={{ backgroundColor: palette.value }}
+                    title={palette.name}
+                    aria-label={palette.name}
+                    aria-pressed={accentColor === palette.value}
                   >
-                    {accentColor === c.id ? '✓' : ''}
+                    {accentColor === palette.value ? '✓' : ''}
                   </button>
                 ))}
               </div>
-            </label>
-
-            <div className="form-row-2">
-              <label>
-                Theme Mode
-                <div className="btn-group">
-                  <button
-                    type="button"
-                    onClick={() => setThemeMode('dark')}
-                    className={`btn-toggle ${themeMode === 'dark' ? 'active' : ''}`}
-                  >
-                    🌙 Dark
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setThemeMode('light')}
-                    className={`btn-toggle ${themeMode === 'light' ? 'active' : ''}`}
-                  >
-                    ☀️ Light
-                  </button>
-                </div>
-              </label>
-            </div>
-
-            <div className="modal-actions">
-              <button type="button" onClick={handleResetDefaults} className="btn-danger-ghost">
-                🔄 Reset to Defaults
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  saveToStorage();
-                  setShowCustomizer(false);
-                  notify('Website customizations saved successfully!');
-                }}
-                className="btn-primary"
-              >
-                💾 Save &amp; Apply
-              </button>
+            </fieldset>
+            <fieldset className="theme-picker" style={{ marginTop: '14px' }}>
+              <legend>Appearance</legend>
+              <div className="form-actions btn-group">
+                <button type="button" onClick={() => setTheme('dark')} className={`btn-toggle ${theme === 'dark' ? 'btn-primary active' : 'btn-outline'}`} aria-pressed={theme === 'dark'}>🌙 Dark</button>
+                <button type="button" onClick={() => setTheme('light')} className={`btn-toggle ${theme === 'light' ? 'btn-primary active' : 'btn-outline'}`} aria-pressed={theme === 'light'}>☀️ Light</button>
+              </div>
+            </fieldset>
+            <div className="modal-actions form-actions" style={{ marginTop: '20px' }}>
+              <button type="button" onClick={handleResetDefaults} className="btn-danger-ghost btn-danger">Reset defaults</button>
+              <button type="button" onClick={() => { setShowCustomizer(false); ntf('Website customizations saved successfully!'); }} className="btn-primary">Save &amp; apply</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Quick Action Studio Button */}
+      {/* Floating AI Chat Assistant Launcher */}
+      <button
+        type="button"
+        onClick={() => setShowAiChat(true)}
+        className="floating-ai-btn"
+        title="Open AI Chat Assistant"
+        aria-label="Open AI Chat Assistant"
+      >
+        🤖 <span>AI Chat</span>
+      </button>
+
+      {/* Floating Action Studio Launcher */}
       <button
         type="button"
         onClick={() => setShowFeatureStudio(true)}
-        className="floating-studio-btn"
+        className="floating-studio-btn floating-feature"
         title="Open Feature Studio to add new features"
+        aria-label="Add a feature module"
       >
-        ✨ Add Feature
+        ✨ <span>Add Feature</span>
       </button>
     </div>
   );

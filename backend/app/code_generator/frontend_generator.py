@@ -159,6 +159,7 @@ class FrontendGenerator(CodeGenerator):
         files = [
             GeneratedFile(path=f"{root}/src/App.tsx", content=self._build_app_tsx(prompt, display_name, spec)),
             GeneratedFile(path=f"{root}/src/Login.tsx", content=self._build_login_tsx(display_name)),
+            GeneratedFile(path=f"{root}/src/AiChat.tsx", content=self._build_ai_chat_tsx(display_name, prompt)),
             GeneratedFile(path=f"{root}/src/Dashboard.tsx", content=self.generate_dashboard_tsx(
                 display_name, prompt, entities=spec.get("components", []),
                 domain_key=spec.get("key", "generic"), entity_labels=spec.get("module_labels", {}),
@@ -215,7 +216,7 @@ class FrontendGenerator(CodeGenerator):
 
         imports = [
             "import React, { useState, useEffect } from 'react';",
-"import AiChat from './components/AiChat';",
+            "import AiChat from './AiChat';",
             "import brandMark from './assets/brand-mark.svg';",
             "import Login from './Login';",
             "import Dashboard from './Dashboard';",
@@ -806,6 +807,9 @@ const InnerApp: React.FC = () => {{
             ) : (
               <a href="#quick-access" className="btn-xs btn-primary btn-outline">Sign in / Register</a>
             )}}
+            <button type="button" onClick={{() => setShowAiChat(true)}} className="btn-ai-chat" title="Open AI Chat Assistant" style={{{{ padding: '8px 14px', borderRadius: '12px' }}}}>
+              🤖 AI Chat
+            </button>
             <button type="button" onClick={{() => setShowFeatureStudio(true)}} className="btn-glow-feature btn-feature">
               ➕ Add New Feature
             </button>
@@ -1316,6 +1320,17 @@ const InnerApp: React.FC = () => {{
           </div>
         </div>
       )}}
+
+      {{/* Floating AI Chat Assistant Launcher */}}
+      <button
+        type="button"
+        onClick={{() => setShowAiChat(true)}}
+        className="floating-ai-btn"
+        title="Open AI Chat Assistant"
+        aria-label="Open AI Chat Assistant"
+      >
+        🤖 <span>AI Chat</span>
+      </button>
 
       {{/* Floating Action Studio Launcher */}}
       <button
@@ -1962,6 +1977,150 @@ const Login: React.FC<LoginProps> = ({{ onLogin, onSignIn }}) => {{
 export default Login;
 '''
 
+    def _build_ai_chat_tsx(self, project_name: str, prompt: str = "") -> str:
+        safe_name = json.dumps(project_name, ensure_ascii=False)
+        return f'''import React, {{ useState, useRef, useEffect }} from 'react';
+
+interface AiChatProps {{
+  onClose: () => void;
+  projectName?: string;
+}}
+
+interface ChatMessage {{
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+}}
+
+const AiChat: React.FC<AiChatProps> = ({{ onClose, projectName = {safe_name} }}) => {{
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {{
+      id: 1,
+      role: 'assistant',
+      content: 'Hello! I am your AI Assistant. How can I help you today? You can ask about managing records, customizing views, or finding features.'
+    }}
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {{
+    messagesEndRef.current?.scrollIntoView({{ behavior: 'smooth' }});
+  }};
+
+  useEffect(() => {{
+    scrollToBottom();
+  }}, [messages, isLoading]);
+
+  const quickPrompts = [
+    'How do I add a new record?',
+    'What features can I customize?',
+    'How do I switch themes or languages?',
+    'Show me how to export or backup data'
+  ];
+
+  const handleSend = (userText: string) => {{
+    const text = userText.trim();
+    if (!text || isLoading) return;
+
+    const userMessage: ChatMessage = {{
+      id: Date.now(),
+      role: 'user',
+      content: text
+    }};
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    setTimeout(() => {{
+      let reply = 'I can help with that! You can use the sidebar to navigate between sections, add records using the form cards, or click Add Feature to launch new custom modules.';
+      const query = text.toLowerCase();
+      if (query.includes('add') || query.includes('create') || query.includes('record')) {{
+        reply = 'To add a new record, navigate to the respective section from the navigation sidebar or dashboard, enter the details in the form fields, and click the Add button. Your records are saved automatically.';
+      }} else if (query.includes('theme') || query.includes('color') || query.includes('dark') || query.includes('light')) {{
+        reply = 'You can toggle between Dark Mode and Light Mode using the Customize Website button in the sidebar. You can also pick from curated accent themes like Cyan, Indigo, Emerald, Amber, or Rose!';
+      }} else if (query.includes('language') || query.includes('translate')) {{
+        reply = 'Use the Language dropdown in the sidebar to switch between English, Hindi, Kannada, Marathi, or Telugu in real time.';
+      }} else if (query.includes('feature') || query.includes('module')) {{
+        reply = 'Click the Add Feature / Module button in the sidebar or the floating launcher at the bottom-right corner to dynamically create Kanban boards, tables, metric cards, or notes!';
+      }} else if (query.includes('export') || query.includes('backup')) {{
+        reply = 'All records and customizations are securely stored in your active session. You can also export or download the full project archive directly from the main workspace generator.';
+      }}
+      setMessages((prev) => [
+        ...prev,
+        {{ id: Date.now() + 1, role: 'assistant', content: reply }}
+      ]);
+      setIsLoading(false);
+    }}, 450);
+  }};
+
+  const handleSubmit = (e: React.FormEvent) => {{
+    e.preventDefault();
+    handleSend(input);
+  }};
+
+  return (
+    <div className="ai-chat-backdrop" onClick={{(e) => {{ if (e.target === e.currentTarget) onClose(); }}}}>
+      <div className="ai-chat-window" role="dialog" aria-modal="true" aria-label="AI Assistant">
+        <header className="ai-chat-header">
+          <div className="ai-chat-title">
+            <span role="img" aria-label="bot">🤖</span>
+            <span>{{projectName}} AI Assistant</span>
+            <span className="ai-chat-badge">Online</span>
+          </div>
+          <button type="button" onClick={{onClose}} className="btn-del-sm" style={{{{ fontSize: '1.2rem', padding: '4px 8px' }}}} title="Close Chat">✕</button>
+        </header>
+
+        <div className="ai-chat-messages">
+          {{messages.map((msg) => (
+            <div key={{msg.id}} className={{`ai-message ${{msg.role === 'user' ? 'user' : 'bot'}}`}}>
+              <div className={{`ai-avatar ${{msg.role === 'user' ? 'user-av' : 'bot'}}`}}>
+                {{msg.role === 'user' ? '👤' : '🤖'}}
+              </div>
+              <div className={{`ai-bubble ${{msg.role === 'user' ? 'user' : 'bot'}}`}}>
+                {{msg.content}}
+              </div>
+            </div>
+          ))}}
+          {{isLoading && (
+            <div className="ai-message bot">
+              <div className="ai-avatar bot">🤖</div>
+              <div className="ai-bubble bot">Thinking...</div>
+            </div>
+          )}}
+          <div ref={{messagesEndRef}} />
+        </div>
+
+        <div className="ai-quick-prompts">
+          {{quickPrompts.map((promptText, i) => (
+            <button key={{i}} type="button" onClick={{() => handleSend(promptText)}} className="ai-chip">
+              {{promptText}}
+            </button>
+          ))}}
+        </div>
+
+        <form onSubmit={{handleSubmit}} className="ai-chat-input-bar">
+          <input
+            type="text"
+            value={{input}}
+            onChange={{(e) => setInput(e.target.value)}}
+            placeholder="Ask about this application..."
+            disabled={{isLoading}}
+            className="ai-chat-input"
+            autoFocus
+          />
+          <button type="submit" disabled={{isLoading || !input.trim()}} className="btn-primary" style={{{{ padding: '10px 18px', borderRadius: '14px' }}}}>
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}};
+
+export default AiChat;
+'''
+
     def _resolve_domain_palette(self, prompt: str) -> dict[str, str]:
         key = detect_website_key(prompt)
         accents = {
@@ -2205,6 +2364,30 @@ input:focus, select:focus, textarea:focus {{ outline: none; border-color: var(--
 .toast-banner {{ padding: 14px 18px; border-radius: 16px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(56, 189, 248, 0.14)); border: 1px solid rgba(16, 185, 129, 0.35); color: #a7f3d0; font-weight: 600; }}
 .floating-studio-btn, .floating-feature {{ position: fixed; bottom: 28px; right: 28px; background: var(--accent-gradient); color: white; font-weight: 700; font-size: 0.95rem; padding: 14px 22px; border-radius: 999px; box-shadow: 0 8px 24px var(--accent-glow); border: none; cursor: pointer; z-index: 80; display: flex; align-items: center; gap: 8px; transition: transform 0.2s ease; }}
 .floating-studio-btn:hover, .floating-feature:hover {{ transform: scale(1.05); }}
+.floating-ai-btn {{ position: fixed; bottom: 86px; right: 28px; background: linear-gradient(135deg, #6366f1, #a855f7) !important; color: white !important; font-weight: 700; font-size: 0.95rem; padding: 13px 20px; border-radius: 999px; box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45); border: none; cursor: pointer; z-index: 80; display: flex; align-items: center; gap: 8px; transition: transform 0.2s ease, box-shadow 0.2s ease; }}
+.floating-ai-btn:hover {{ transform: scale(1.05); box-shadow: 0 12px 28px rgba(168, 85, 247, 0.55); }}
+.btn-ai-chat {{ background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(168, 85, 247, 0.16)) !important; border: 1px solid rgba(168, 85, 247, 0.35) !important; color: #c084fc !important; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }}
+.btn-ai-chat:hover {{ background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3)) !important; border-color: rgba(168, 85, 247, 0.6) !important; color: #ffffff !important; }}
+.ai-chat-backdrop {{ position: fixed; inset: 0; background: rgba(2, 6, 23, 0.75); backdrop-filter: blur(6px); display: grid; place-items: center; padding: 20px; z-index: 1000; }}
+.ai-chat-window {{ width: min(640px, 100%); height: min(680px, 85vh); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }}
+.ai-chat-header {{ display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; background: var(--bg-inner); border-bottom: 1px solid var(--border-color); }}
+.ai-chat-title {{ display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; }}
+.ai-chat-badge {{ font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }}
+.ai-chat-messages {{ flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }}
+.ai-message {{ display: flex; align-items: flex-start; gap: 12px; max-width: 84%; }}
+.ai-message.user {{ margin-left: auto; flex-direction: row-reverse; }}
+.ai-avatar {{ width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 0.85rem; font-weight: 700; flex: 0 0 auto; }}
+.ai-avatar.bot {{ background: linear-gradient(135deg, #6366f1, #a855f7); color: white; box-shadow: 0 0 12px rgba(168, 85, 247, 0.4); }}
+.ai-avatar.user-av {{ background: var(--accent-gradient); color: white; }}
+.ai-bubble {{ padding: 12px 16px; border-radius: 18px; font-size: 0.9rem; line-height: 1.5; }}
+.ai-bubble.bot {{ background: var(--bg-inner); border: 1px solid var(--border-color); color: var(--text-main); border-top-left-radius: 4px; }}
+.ai-bubble.user {{ background: var(--accent-gradient); color: white; border-top-right-radius: 4px; }}
+.ai-chat-input-bar {{ display: flex; gap: 10px; padding: 16px 20px; background: var(--bg-inner); border-top: 1px solid var(--border-color); }}
+.ai-chat-input {{ flex: 1; padding: 12px 16px; border-radius: 14px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); }}
+.ai-chat-input:focus {{ outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-glow); }}
+.ai-quick-prompts {{ display: flex; gap: 6px; padding: 0 20px 10px; overflow-x: auto; }}
+.ai-chip {{ background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }}
+.ai-chip:hover {{ color: var(--accent-primary); border-color: var(--accent-primary); }}
 .media-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }}
 .media-card, .media-item {{ background: var(--bg-inner); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; padding: 8px; display: flex; flex-direction: column; align-items: center; }}
 .media-image, .media-video {{ width: 100%; border-radius: 12px; max-height: 180px; object-fit: cover; }}
